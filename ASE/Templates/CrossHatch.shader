@@ -2,6 +2,10 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 {
 	Properties
 	{
+		[HideInInspector] _LightMode("__lightMode", Float) = 0.0
+		[HideInInspector] _ShadeMode("__shadeMode", Float) = 0.0
+		[HideInInspector] _ShadeGradientMap("Shade Gradient", 2D) = "white" {}
+
 		/*ase_props*/
 		//_TessPhongStrength( "Tess Phong Strength", Range( 0, 1 ) ) = 0.5
 		//_TessValue( "Tess Max Tessellation", Range( 1, 32 ) ) = 16
@@ -14,8 +18,6 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 	SubShader
 	{
 		/*ase_subshader_options:Name=Additional Options
-			Option:Light Mode:Shade Only:Shade Only
-				Shade Only:SetDefine:_LIGHT_SHADE_ONLY 1
 			Option:Surface:Opaque,Transparent:Opaque
 				Opaque:SetPropertyOnSubShader:RenderType,Opaque
 				Opaque:SetPropertyOnSubShader:RenderQueue,Geometry
@@ -177,6 +179,10 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 		Cull Back
 		HLSLINCLUDE
 		#pragma target 2.0
+
+		//Material Keywords
+		#pragma shader_feature_local _LIGHT_SHADE_ONLY
+		#pragma shader_feature_local _USE_SHADE_GRADIENT
 
 		float4 FixedTess( float tessValue )
 		{
@@ -526,7 +532,7 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 			HLSLPROGRAM
 			#pragma prefer_hlslcc gles
 			#pragma exclude_renderers d3d11_9x
-
+						
 			#pragma multi_compile _ _MAIN_LIGHT_SHADOWS
 			#pragma multi_compile _ _MAIN_LIGHT_SHADOWS_CASCADE
 			#pragma multi_compile _ _ADDITIONAL_LIGHTS_VERTEX _ADDITIONAL_LIGHTS
@@ -593,6 +599,11 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 				float _TessMaxDisp;
 			#endif
 			CBUFFER_END
+
+			#if _USE_SHADE_GRADIENT
+			TEXTURE2D(_ShadeGradientMap); SAMPLER(sampler_ShadeGradientMap);
+			#endif
+
 			/*ase_globals*/
 
 			/*ase_funcs*/
@@ -738,6 +749,15 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 			}
 			#endif
 
+			half3 LightingLambertGradient(half3 lightColor, half3 lightDir, half3 normal, TEXTURE2D_PARAM(tex, sampler_tex))
+			{
+				half hNdotL = saturate(dot(normal, lightDir) * 0.5 + 0.5);
+
+				half3 gradient = SAMPLE_TEXTURE2D(tex, sampler_tex, half2(hNdotL, 0.5)).rgb;
+
+				return lightColor * gradient;
+			}
+
 			half CrossHatchShade(half lum, half4 hatch) {
 				//compute weights
 				half4 shadingFactor = half4(lum.xxxx);
@@ -750,7 +770,7 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 				return dot(weights, hatch.abgr) + 4.0 * clamp(lum - 0.75, 0, 0.25);
 			}
 
-			half4 CrossHatchLightingShadeOnly(InputData inputData, half3 diffuse, half4 specularGloss, half smoothness, half3 emission, half4 crossHatch, half3 crossHatchColor, half alpha)
+			half4 CrossHatchLightingShadeOnly(InputData inputData, half3 diffuse, half4 specularGloss, half smoothness, half3 emission, half occlusion, half4 crossHatch, half3 crossHatchColor, half alpha)
 			{
 				Light mainLight = GetMainLight(inputData.shadowCoord);
 				MixRealtimeAndBakedGI(mainLight, inputData.normalWS, inputData.bakedGI, half4(0, 0, 0, 0));
@@ -759,7 +779,11 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 
 				half3 diffuseColor = mainLight.color; //only use ambient light
 
+				#if _USE_SHADE_GRADIENT
+				half3 shadeColor = inputData.bakedGI + LightingLambertGradient(attenuatedLightColor, mainLight.direction, inputData.normalWS, TEXTURE2D_ARGS(_ShadeGradientMap, sampler_ShadeGradientMap));
+				#else
 				half3 shadeColor = inputData.bakedGI + LightingLambert(attenuatedLightColor, mainLight.direction, inputData.normalWS);
+				#endif
 
 				#if _SPECULAR_COLOR
 				half3 specularColor = LightingSpecular(attenuatedLightColor, mainLight.direction, inputData.normalWS, inputData.viewDirectionWS, specularGloss, smoothness);
@@ -771,7 +795,12 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 					{
 						Light light = GetAdditionalLight(lightIndex, inputData.positionWS);
 						half3 attenuatedLightColor = light.color * (light.distanceAttenuation * light.shadowAttenuation);
+
+						#if _USE_SHADE_GRADIENT
+						shadeColor += LightingLambertGradient(attenuatedLightColor, light.direction, inputData.normalWS, TEXTURE2D_ARGS(_ShadeGradientMap, sampler_ShadeGradientMap));
+						#else
 						shadeColor += LightingLambert(attenuatedLightColor, light.direction, inputData.normalWS);
+						#endif
 
 						#if _SPECULAR_COLOR
 						specularColor += LightingSpecular(attenuatedLightColor, light.direction, inputData.normalWS, inputData.viewDirectionWS, specularGloss, smoothness);
@@ -782,6 +811,8 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 				#ifdef _ADDITIONAL_LIGHTS_VERTEX
 				shadeColor += inputData.vertexLighting;
 				#endif
+
+				shadeColor *= occlusion;
 
 				shadeColor += emission;
 
@@ -882,7 +913,7 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 				#endif
 
 				#if _LIGHT_SHADE_ONLY
-					half4 color = CrossHatchLightingShadeOnly(inputData, Albedo, spec, spec.a, Emission, ShadeLookUp, ShadeColor, Alpha);
+					half4 color = CrossHatchLightingShadeOnly(inputData, Albedo, spec, spec.a, Emission, Occlusion, ShadeLookUp, ShadeColor, Alpha);
 				#else
 					half4 color = half4(1, 1, 1, 1);
 				#endif
@@ -1799,6 +1830,6 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 		/*ase_pass_end*/
 	}
 	/*ase_lod*/
-	CustomEditor "UnityEditor.ShaderGraph.PBRMasterGUI"
+	CustomEditor "M8.URP.CrossHatchShaderInspector"
 	FallBack "Hidden/InternalErrorShader"
 }
