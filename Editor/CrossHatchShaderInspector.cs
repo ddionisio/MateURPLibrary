@@ -12,6 +12,7 @@ namespace M8.URP {
         public const string propModeShade = "_ShadeMode";
 
         public const string keywordLightShadeOnly = "_LIGHT_SHADE_ONLY";
+        public const string keywordLightSingleStep = "_LIGHT_SINGLE_STEP";
 
         public const string keywordShadeGradient = "_USE_SHADE_GRADIENT";
 
@@ -27,6 +28,7 @@ namespace M8.URP {
 
         public enum LightMode {
             ShadeOnly,
+            SingleStep,
         }
 
         public enum ShadeMode {
@@ -42,6 +44,12 @@ namespace M8.URP {
         private Properties mProperties;
 
         private bool mIsInit = false;
+
+        //Material Properties
+        private int mMatPropSingleStepSmoothness = Shader.PropertyToID("_SingleStepSmoothness");
+        private int mMatPropSingleStepOffset = Shader.PropertyToID("_SingleStepOffset");
+        private int mMatPropSingleStepLitColor = Shader.PropertyToID("_SingleStepLitColor");
+        private int mMatPropSingleStepDimColor = Shader.PropertyToID("_SingleStepDimColor");
 
         public override void OnGUI(MaterialEditor materialEditorIn, MaterialProperty[] properties) {
             base.OnGUI(materialEditorIn, properties);
@@ -65,6 +73,11 @@ namespace M8.URP {
             switch(lightMode) {
                 case LightMode.ShadeOnly:
                     CoreUtils.SetKeyword(material, keywordLightShadeOnly, true);
+                    CoreUtils.SetKeyword(material, keywordLightSingleStep, false);
+                    break;
+                case LightMode.SingleStep:
+                    CoreUtils.SetKeyword(material, keywordLightShadeOnly, false);
+                    CoreUtils.SetKeyword(material, keywordLightSingleStep, true);
                     break;
             }
 
@@ -89,31 +102,51 @@ namespace M8.URP {
 
             EditorGUI.BeginChangeCheck();
 
+            ///////////////////////////////////
             //light settings
             DrawSeparator();
 
-            var lightMode = (LightMode)material.GetFloat(propModeLight);
-            var _lightMode = (LightMode)EditorGUILayout.EnumPopup("Light Mode", lightMode);
-            if(lightMode != _lightMode) {
-                lightMode = _lightMode;
-                material.SetFloat(propModeShade, (float)lightMode);
-            }
+            var _lightMode = (LightMode)material.GetFloat(propModeLight);
+            var lightMode = (LightMode)EditorGUILayout.EnumPopup("Light Mode", _lightMode);
+            if(lightMode != _lightMode)
+                material.SetFloat(propModeLight, (float)lightMode);
 
             switch(lightMode) {
                 case LightMode.ShadeOnly:
                     break;
+
+                case LightMode.SingleStep:
+                    var _singleStepSmoothness = material.GetFloat(mMatPropSingleStepSmoothness);
+                    var singleStepSmoothness = EditorGUILayout.Slider("Smoothness", _singleStepSmoothness, 0f, 1f);
+                    if(singleStepSmoothness != _singleStepSmoothness)
+                        material.SetFloat(mMatPropSingleStepSmoothness, singleStepSmoothness);
+
+                    var _singleStepOfs = material.GetFloat(mMatPropSingleStepOffset);
+                    var singleStepOfs = EditorGUILayout.Slider("Offset", _singleStepOfs, 0f, 1f);
+                    if(singleStepOfs != _singleStepOfs)
+                        material.SetFloat(mMatPropSingleStepOffset, singleStepOfs);
+
+                    var _singleStepLitClr = material.GetColor(mMatPropSingleStepLitColor);
+                    var singleStepLitClr = EditorGUILayout.ColorField("Light Color", _singleStepLitClr);
+                    if(singleStepLitClr != _singleStepLitClr)
+                        material.SetColor(mMatPropSingleStepLitColor, singleStepLitClr);
+
+                    var _singleStepDimClr = material.GetColor(mMatPropSingleStepDimColor);
+                    var singleStepDimClr = EditorGUILayout.ColorField("Dark Color", _singleStepDimClr);
+                    if(singleStepDimClr != _singleStepDimClr)
+                        material.SetColor(mMatPropSingleStepDimColor, singleStepDimClr);
+                    break;
             }
             //
 
+            ///////////////////////////////////
             //shade settings
             DrawSeparator();
 
-            var shadeMode = (ShadeMode)material.GetFloat(propModeShade);
-            var _shadeMode = (ShadeMode)EditorGUILayout.EnumPopup("Shade Mode", shadeMode);
-            if(shadeMode != _shadeMode) {
-                shadeMode = _shadeMode;
+            var _shadeMode = (ShadeMode)material.GetFloat(propModeShade);
+            var shadeMode = (ShadeMode)EditorGUILayout.EnumPopup("Shade Mode", _shadeMode);
+            if(shadeMode != _shadeMode)
                 material.SetFloat(propModeShade, (float)shadeMode);
-            }
 
             switch(shadeMode) {
                 case ShadeMode.Gradient:

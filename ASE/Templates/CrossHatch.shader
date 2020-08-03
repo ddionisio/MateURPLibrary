@@ -4,7 +4,13 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 	{
 		[HideInInspector] _LightMode("__lightMode", Float) = 0.0
 		[HideInInspector] _ShadeMode("__shadeMode", Float) = 0.0
+
 		[HideInInspector] _ShadeGradientMap("Shade Gradient", 2D) = "white" {}
+
+		[HideInInspector] _SingleStepSmoothness("Smoothness", Float) = 0.1
+		[HideInInspector] _SingleStepOffset("Offset", Float) = 0.5
+		[HideInInspector] _SingleStepLitColor("Light Color", Color) = (1, 1, 1, 1)
+		[HideInInspector] _SingleStepDimColor("Dark Color", Color) = (0.5, 0.5, 0.5, 1)
 
 		/*ase_props*/
 		//_TessPhongStrength( "Tess Phong Strength", Range( 0, 1 ) ) = 0.5
@@ -182,6 +188,7 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 
 		//Material Keywords
 		#pragma shader_feature_local _LIGHT_SHADE_ONLY
+		#pragma shader_feature_local _LIGHT_SINGLE_STEP
 		#pragma shader_feature_local _USE_SHADE_GRADIENT
 
 		float4 FixedTess( float tessValue )
@@ -350,6 +357,12 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 				float _TessMax;
 				float _TessEdgeLength;
 				float _TessMaxDisp;
+			#endif
+			#ifdef _LIGHT_SINGLE_STEP
+				float _SingleStepSmoothness;
+				float _SingleStepOffset;
+				half4 _SingleStepLitColor;
+				half4 _SingleStepDimColor;
 			#endif
 			CBUFFER_END
 			/*ase_globals*/
@@ -598,6 +611,12 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 				float _TessEdgeLength;
 				float _TessMaxDisp;
 			#endif
+			#ifdef _LIGHT_SINGLE_STEP
+				float _SingleStepSmoothness;
+				float _SingleStepOffset;
+				half4 _SingleStepLitColor;
+				half4 _SingleStepDimColor;
+			#endif
 			CBUFFER_END
 
 			#if _USE_SHADE_GRADIENT
@@ -749,7 +768,7 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 			}
 			#endif
 
-			half3 LightingLambertGradient(half3 lightColor, half3 lightDir, half3 normal, TEXTURE2D_PARAM(tex, sampler_tex))
+			inline half3 LightingLambertGradient(half3 lightColor, half3 lightDir, half3 normal, TEXTURE2D_PARAM(tex, sampler_tex))
 			{
 				half hNdotL = saturate(dot(normal, lightDir) * 0.5 + 0.5);
 
@@ -758,7 +777,12 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 				return lightColor * gradient;
 			}
 
-			half CrossHatchShade(half lum, half4 hatch) {
+			inline half LambertSingleStep(half3 lightDir, half3 normal, half ofs, half smoothness) {
+				half angleDiff = saturate((dot(normal, lightDir) * 0.5 + 0.5) - ofs);
+				return smoothstep(0, smoothness, angleDiff);
+			}
+
+			inline half CrossHatchShade(half lum, half4 hatch) {
 				//compute weights
 				half4 shadingFactor = half4(lum.xxxx);
 				const half4 leftRoot = half4(-0.25, 0.0, 0.25, 0.5);
@@ -770,15 +794,24 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 				return dot(weights, hatch.abgr) + 4.0 * clamp(lum - 0.75, 0, 0.25);
 			}
 
-			half4 CrossHatchLightingShadeOnly(InputData inputData, half3 diffuse, half4 specularGloss, half smoothness, half3 emission, half occlusion, half4 crossHatch, half3 crossHatchColor, half alpha)
+			half4 CrossHatchLighting(InputData inputData, half3 diffuse, half4 specularGloss, half smoothness, half3 emission, half4 crossHatch, half3 crossHatchColor, half alpha)
 			{
 				Light mainLight = GetMainLight(inputData.shadowCoord);
 				MixRealtimeAndBakedGI(mainLight, inputData.normalWS, inputData.bakedGI, half4(0, 0, 0, 0));
 
-				half3 attenuatedLightColor = mainLight.color * (mainLight.distanceAttenuation * mainLight.shadowAttenuation);
+				half3 distanceAttenuatedLightColor = mainLight.color * mainLight.distanceAttenuation;
+				half3 attenuatedLightColor = distanceAttenuatedLightColor * mainLight.shadowAttenuation;
 
-				half3 diffuseColor = mainLight.color; //only use ambient light
+				half3 diffuseColor = inputData.bakedGI;
 
+				//lighting
+				#ifdef _LIGHT_SINGLE_STEP
+				diffuseColor += distanceAttenuatedLightColor * lerp(_SingleStepDimColor, _SingleStepLitColor, LambertSingleStep(mainLight.direction, inputData.normalWS, _SingleStepOffset, _SingleStepSmoothness)).rgb;
+				#else
+				diffuseColor += mainLight.color;
+				#endif
+
+				//shading
 				#if _USE_SHADE_GRADIENT
 				half3 shadeColor = inputData.bakedGI + LightingLambertGradient(attenuatedLightColor, mainLight.direction, inputData.normalWS, TEXTURE2D_ARGS(_ShadeGradientMap, sampler_ShadeGradientMap));
 				#else
@@ -796,6 +829,12 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 						Light light = GetAdditionalLight(lightIndex, inputData.positionWS);
 						half3 attenuatedLightColor = light.color * (light.distanceAttenuation * light.shadowAttenuation);
 
+						//lighting
+						#ifdef _LIGHT_SINGLE_STEP
+						diffuseColor += attenuatedLightColor * lerp(_SingleStepDimColor, _SingleStepLitColor, LambertSingleStep(light.direction, inputData.normalWS, _SingleStepOffset, _SingleStepSmoothness)).rgb;
+						#endif
+
+						//shading
 						#if _USE_SHADE_GRADIENT
 						shadeColor += LightingLambertGradient(attenuatedLightColor, light.direction, inputData.normalWS, TEXTURE2D_ARGS(_ShadeGradientMap, sampler_ShadeGradientMap));
 						#else
@@ -809,16 +848,20 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 				#endif
 
 				#ifdef _ADDITIONAL_LIGHTS_VERTEX
+					#ifndef _LIGHT_SHADE_ONLY
+					diffuseColor += inputData.vertexLighting;
+					#endif
 				shadeColor += inputData.vertexLighting;
 				#endif
-
-				shadeColor *= occlusion;
-
+								
 				shadeColor += emission;
 
-				half3 finalColor = (diffuseColor * diffuse) + emission; //allow emission to influence color
+				half3 finalColor = (diffuseColor * diffuse) + emission;
 
 				#if _SPECULAR_COLOR
+					#ifndef _LIGHT_SHADE_ONLY
+					finalColor += specularColor;
+					#endif
 				shadeColor += specularColor;
 				#endif
 
@@ -864,7 +907,6 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 				float3 Emission = /*ase_frag_out:Emission;Float3;2;-1;_Emission*/0/*end*/;
 				float3 Specular = /*ase_frag_out:Specular;Float3;9*/0.5/*end*/;
 				float Smoothness = /*ase_frag_out:Smoothness;Float;4*/0.5/*end*/;
-				float Occlusion = /*ase_frag_out:Occlusion;Float;5*/1/*end*/;
 				float4 ShadeLookUp = /*ase_frag_out:Shade Look-Up;Float4;101*/float4(0, 0.25, 0.5, 0.75)/*end*/;
 				float3 ShadeColor = /*ase_frag_out:Shade Color;Float3;102*/0/*end*/;
 				float Alpha = /*ase_frag_out:Alpha;Float;6;-1;_Alpha*/1/*end*/;
@@ -912,11 +954,7 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 					half4 spec = half4(0, 0, 0, 1);
 				#endif
 
-				#if _LIGHT_SHADE_ONLY
-					half4 color = CrossHatchLightingShadeOnly(inputData, Albedo, spec, spec.a, Emission, Occlusion, ShadeLookUp, ShadeColor, Alpha);
-				#else
-					half4 color = half4(1, 1, 1, 1);
-				#endif
+				half4 color = CrossHatchLighting(inputData, Albedo, spec, spec.a, Emission, ShadeLookUp, ShadeColor, Alpha);
 				//
 
 				#ifdef _REFRACTION_ASE
@@ -998,6 +1036,12 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 				float _TessMax;
 				float _TessEdgeLength;
 				float _TessMaxDisp;
+			#endif
+			#ifdef _LIGHT_SINGLE_STEP
+				float _SingleStepSmoothness;
+				float _SingleStepOffset;
+				half4 _SingleStepLitColor;
+				half4 _SingleStepDimColor;
 			#endif
 			CBUFFER_END
 			/*ase_globals*/
@@ -1222,6 +1266,12 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 				float _TessEdgeLength;
 				float _TessMaxDisp;
 			#endif
+			#ifdef _LIGHT_SINGLE_STEP
+				float _SingleStepSmoothness;
+				float _SingleStepOffset;
+				half4 _SingleStepLitColor;
+				half4 _SingleStepDimColor;
+			#endif
 			CBUFFER_END
 			/*ase_globals*/
 
@@ -1437,6 +1487,12 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 				float _TessMax;
 				float _TessEdgeLength;
 				float _TessMaxDisp;
+			#endif
+			#ifdef _LIGHT_SINGLE_STEP
+				float _SingleStepSmoothness;
+				float _SingleStepOffset;
+				half4 _SingleStepLitColor;
+				half4 _SingleStepDimColor;
 			#endif
 			CBUFFER_END
 			/*ase_globals*/
@@ -1667,6 +1723,12 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 				float _TessMax;
 				float _TessEdgeLength;
 				float _TessMaxDisp;
+			#endif
+			#ifdef _LIGHT_SINGLE_STEP
+				float _SingleStepSmoothness;
+				float _SingleStepOffset;
+				half4 _SingleStepLitColor;
+				half4 _SingleStepDimColor;
 			#endif
 			CBUFFER_END
 			/*ase_globals*/
