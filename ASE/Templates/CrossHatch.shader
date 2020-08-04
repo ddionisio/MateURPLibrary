@@ -189,6 +189,7 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 		//Material Keywords
 		#pragma shader_feature_local _LIGHT_SHADE_ONLY
 		#pragma shader_feature_local _LIGHT_SINGLE_STEP
+		#pragma shader_feature_local _LIGHT_GRADIENT
 		#pragma shader_feature_local _USE_SHADE_GRADIENT
 
 		float4 FixedTess( float tessValue )
