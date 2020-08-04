@@ -6,7 +6,7 @@ namespace M8.URP {
     public class ShaderFeatureCrossHatchEditor : IShaderFeatureEditor {
         public const string propModeShade = "_ShadeMode";
 
-        public const string keywordShadeGradient = "_USE_SHADE_GRADIENT";
+        public const string keywordShadeGradient = "_SHADE_GRADIENT";
 
         public enum ShadeMode {
             None,

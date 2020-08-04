@@ -12,6 +12,8 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 		[HideInInspector] _SingleStepLitColor("Light Color", Color) = (1, 1, 1, 1)
 		[HideInInspector] _SingleStepDimColor("Dark Color", Color) = (0.5, 0.5, 0.5, 1)
 
+		[HideInInspector] _LightGradientMap("Light Gradient", 2D) = "white" {}
+
 		/*ase_props*/
 		//_TessPhongStrength( "Tess Phong Strength", Range( 0, 1 ) ) = 0.5
 		//_TessValue( "Tess Max Tessellation", Range( 1, 32 ) ) = 16
@@ -190,7 +192,7 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 		#pragma shader_feature_local _LIGHT_SHADE_ONLY
 		#pragma shader_feature_local _LIGHT_SINGLE_STEP
 		#pragma shader_feature_local _LIGHT_GRADIENT
-		#pragma shader_feature_local _USE_SHADE_GRADIENT
+		#pragma shader_feature_local _SHADE_GRADIENT
 
 		float4 FixedTess( float tessValue )
 		{
@@ -620,7 +622,11 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 			#endif
 			CBUFFER_END
 
-			#if _USE_SHADE_GRADIENT
+			#if _LIGHT_GRADIENT
+			TEXTURE2D(_LightGradientMap); SAMPLER(sampler_LightGradientMap);
+			#endif
+
+			#if _SHADE_GRADIENT
 			TEXTURE2D(_ShadeGradientMap); SAMPLER(sampler_ShadeGradientMap);
 			#endif
 
@@ -808,12 +814,14 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 				//lighting
 				#ifdef _LIGHT_SINGLE_STEP
 				diffuseColor += distanceAttenuatedLightColor * lerp(_SingleStepDimColor, _SingleStepLitColor, LambertSingleStep(mainLight.direction, inputData.normalWS, _SingleStepOffset, _SingleStepSmoothness)).rgb;
+				#elif _LIGHT_GRADIENT
+				diffuseColor += LightingLambertGradient(distanceAttenuatedLightColor, mainLight.direction, inputData.normalWS, TEXTURE2D_ARGS(_LightGradientMap, sampler_LightGradientMap));
 				#else
 				diffuseColor += mainLight.color;
 				#endif
 
 				//shading
-				#if _USE_SHADE_GRADIENT
+				#if _SHADE_GRADIENT
 				half3 shadeColor = inputData.bakedGI + LightingLambertGradient(attenuatedLightColor, mainLight.direction, inputData.normalWS, TEXTURE2D_ARGS(_ShadeGradientMap, sampler_ShadeGradientMap));
 				#else
 				half3 shadeColor = inputData.bakedGI + LightingLambert(attenuatedLightColor, mainLight.direction, inputData.normalWS);
@@ -833,10 +841,12 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 						//lighting
 						#ifdef _LIGHT_SINGLE_STEP
 						diffuseColor += attenuatedLightColor * lerp(_SingleStepDimColor, _SingleStepLitColor, LambertSingleStep(light.direction, inputData.normalWS, _SingleStepOffset, _SingleStepSmoothness)).rgb;
+						#elif _LIGHT_GRADIENT
+						diffuseColor += LightingLambertGradient(attenuatedLightColor, mainLight.direction, inputData.normalWS, TEXTURE2D_ARGS(_LightGradientMap, sampler_LightGradientMap));
 						#endif
 
 						//shading
-						#if _USE_SHADE_GRADIENT
+						#if _SHADE_GRADIENT
 						shadeColor += LightingLambertGradient(attenuatedLightColor, light.direction, inputData.normalWS, TEXTURE2D_ARGS(_ShadeGradientMap, sampler_ShadeGradientMap));
 						#else
 						shadeColor += LightingLambert(attenuatedLightColor, light.direction, inputData.normalWS);

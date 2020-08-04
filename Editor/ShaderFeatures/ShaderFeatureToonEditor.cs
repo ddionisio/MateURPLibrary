@@ -8,10 +8,12 @@ namespace M8.URP {
 
         public const string keywordLightShadeOnly = "_LIGHT_SHADE_ONLY";
         public const string keywordLightSingleStep = "_LIGHT_SINGLE_STEP";
+        public const string keywordLightGradient = "_LIGHT_GRADIENT";
 
         public enum LightMode {
             ShadeOnly,
             SingleStep,
+            Gradient
         }
 
         public MaterialProperty singleStepSmoothness;
@@ -19,11 +21,15 @@ namespace M8.URP {
         public MaterialProperty singleStepLitColor;
         public MaterialProperty singleStepDimColor;
 
+        public MaterialProperty gradientMap;
+
         public void Setup(MaterialProperty[] properties) {
             singleStepSmoothness = EditorUtils.FindProperty("_SingleStepSmoothness", properties);
             singleStepOffset = EditorUtils.FindProperty("_SingleStepOffset", properties);
             singleStepLitColor = EditorUtils.FindProperty("_SingleStepLitColor", properties);
             singleStepDimColor = EditorUtils.FindProperty("_SingleStepDimColor", properties);
+
+            gradientMap = EditorUtils.FindProperty("_LightGradientMap", properties);
         }
 
         public void MaterialChanged(Material material) {
@@ -32,10 +38,17 @@ namespace M8.URP {
                 case LightMode.ShadeOnly:
                     CoreUtils.SetKeyword(material, keywordLightShadeOnly, true);
                     CoreUtils.SetKeyword(material, keywordLightSingleStep, false);
+                    CoreUtils.SetKeyword(material, keywordLightGradient, false);
                     break;
                 case LightMode.SingleStep:
                     CoreUtils.SetKeyword(material, keywordLightShadeOnly, false);
                     CoreUtils.SetKeyword(material, keywordLightSingleStep, true);
+                    CoreUtils.SetKeyword(material, keywordLightGradient, false);
+                    break;
+                case LightMode.Gradient:
+                    CoreUtils.SetKeyword(material, keywordLightShadeOnly, false);
+                    CoreUtils.SetKeyword(material, keywordLightSingleStep, false);
+                    CoreUtils.SetKeyword(material, keywordLightGradient, true);
                     break;
             }
         }
@@ -60,6 +73,10 @@ namespace M8.URP {
                     singleStepLitColor.colorValue = EditorGUILayout.ColorField("Light Color", singleStepLitColor.colorValue);
 
                     singleStepDimColor.colorValue = EditorGUILayout.ColorField("Dark Color", singleStepDimColor.colorValue);
+                    break;
+
+                case LightMode.Gradient:
+                    gradientMap.textureValue = EditorGUILayout.ObjectField(gradientMap.textureValue, typeof(Texture2D), false) as Texture;
                     break;
             }
         }
