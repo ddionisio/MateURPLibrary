@@ -9,8 +9,8 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 
 		[HideInInspector] _SingleStepSmoothness("Smoothness", Float) = 0.1
 		[HideInInspector] _SingleStepOffset("Offset", Float) = 0.5
-		[HideInInspector] _SingleStepLitColor("Light Color", Color) = (1, 1, 1, 1)
-		[HideInInspector] _SingleStepDimColor("Dark Color", Color) = (0.5, 0.5, 0.5, 1)
+		[HideInInspector] _LightLitColor("Light Color", Color) = (1, 1, 1, 1)
+		[HideInInspector] _LightDimColor("Dark Color", Color) = (0.5, 0.5, 0.5, 1)
 
 		[HideInInspector] _LightGradientMap("Light Gradient", 2D) = "white" {}
 
@@ -191,8 +191,9 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 		//Material Keywords
 		#pragma shader_feature_local _LIGHT_SHADE_ONLY
 		#pragma shader_feature_local _LIGHT_SINGLE_STEP
-		#pragma shader_feature_local _LIGHT_GRADIENT
-		#pragma shader_feature_local _SHADE_GRADIENT
+		#pragma shader_feature_local _LIGHT_GRADIENT //use a single-channel lookup and lerp between lit and dim color
+		#pragma shader_feature_local _LIGHT_GRADIENT_COLOR //use gradient as light value and color
+		#pragma shader_feature_local _SHADE_GRADIENT //use a single-channel lookup for light value
 
 		float4 FixedTess( float tessValue )
 		{
@@ -364,8 +365,10 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 			#ifdef _LIGHT_SINGLE_STEP
 				float _SingleStepSmoothness;
 				float _SingleStepOffset;
-				half4 _SingleStepLitColor;
-				half4 _SingleStepDimColor;
+			#endif
+			#if defined(_LIGHT_SINGLE_STEP) || defined(_LIGHT_GRADIENT)
+				half4 _LightLitColor;
+				half4 _LightDimColor;
 			#endif
 			CBUFFER_END
 			/*ase_globals*/
@@ -616,13 +619,15 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 			#endif
 			#ifdef _LIGHT_SINGLE_STEP
 				float _SingleStepSmoothness;
-				float _SingleStepOffset;
-				half4 _SingleStepLitColor;
-				half4 _SingleStepDimColor;
+				float _SingleStepOffset;				
+			#endif
+			#if defined(_LIGHT_SINGLE_STEP) || defined(_LIGHT_GRADIENT)
+				half4 _LightLitColor;
+				half4 _LightDimColor;
 			#endif
 			CBUFFER_END
 
-			#if _LIGHT_GRADIENT
+			#if defined(_LIGHT_GRADIENT) || defined(_LIGHT_GRADIENT_COLOR)
 			TEXTURE2D(_LightGradientMap); SAMPLER(sampler_LightGradientMap);
 			#endif
 
@@ -789,6 +794,12 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 				return smoothstep(0, smoothness, angleDiff);
 			}
 
+			inline half LambertGradient(half3 lightDir, half3 normal, TEXTURE2D_PARAM(tex, sampler_tex)) {
+				half hNdotL = saturate(dot(normal, lightDir) * 0.5 + 0.5);
+
+				return SAMPLE_TEXTURE2D(tex, sampler_tex, half2(hNdotL, 0.5)).r;
+			}
+
 			inline half CrossHatchShade(half lum, half4 hatch) {
 				//compute weights
 				half4 shadingFactor = half4(lum.xxxx);
@@ -813,16 +824,18 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 
 				//lighting
 				#ifdef _LIGHT_SINGLE_STEP
-				diffuseColor += distanceAttenuatedLightColor * lerp(_SingleStepDimColor, _SingleStepLitColor, LambertSingleStep(mainLight.direction, inputData.normalWS, _SingleStepOffset, _SingleStepSmoothness)).rgb;
+				diffuseColor += distanceAttenuatedLightColor * lerp(_LightDimColor, _LightLitColor, LambertSingleStep(mainLight.direction, inputData.normalWS, _SingleStepOffset, _SingleStepSmoothness)).rgb;
 				#elif _LIGHT_GRADIENT
-				diffuseColor += LightingLambertGradient(distanceAttenuatedLightColor, mainLight.direction, inputData.normalWS, TEXTURE2D_ARGS(_LightGradientMap, sampler_LightGradientMap));
+				diffuseColor += distanceAttenuatedLightColor * lerp(_LightDimColor, _LightLitColor, LambertGradient(mainLight.direction, inputData.normalWS, TEXTURE2D_ARGS(_LightGradientMap, sampler_LightGradientMap))).rgb;
+				#elif _LIGHT_GRADIENT_COLOR
+				diffuseColor += LightingLambertGradient(distanceAttenuatedLightColor, mainLight.direction, inputData.normalWS, TEXTURE2D_ARGS(_LightGradientMap, sampler_LightGradientMap));				
 				#else
 				diffuseColor += mainLight.color;
 				#endif
 
 				//shading
 				#if _SHADE_GRADIENT
-				half3 shadeColor = inputData.bakedGI + LightingLambertGradient(attenuatedLightColor, mainLight.direction, inputData.normalWS, TEXTURE2D_ARGS(_ShadeGradientMap, sampler_ShadeGradientMap));
+				half3 shadeColor = inputData.bakedGI + attenuatedLightColor * LambertGradient(mainLight.direction, inputData.normalWS, TEXTURE2D_ARGS(_ShadeGradientMap, sampler_ShadeGradientMap));
 				#else
 				half3 shadeColor = inputData.bakedGI + LightingLambert(attenuatedLightColor, mainLight.direction, inputData.normalWS);
 				#endif
@@ -840,9 +853,11 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 
 						//lighting
 						#ifdef _LIGHT_SINGLE_STEP
-						diffuseColor += attenuatedLightColor * lerp(_SingleStepDimColor, _SingleStepLitColor, LambertSingleStep(light.direction, inputData.normalWS, _SingleStepOffset, _SingleStepSmoothness)).rgb;
+						diffuseColor += attenuatedLightColor * lerp(_LightDimColor, _LightLitColor, LambertSingleStep(light.direction, inputData.normalWS, _SingleStepOffset, _SingleStepSmoothness)).rgb;
 						#elif _LIGHT_GRADIENT
-						diffuseColor += LightingLambertGradient(attenuatedLightColor, mainLight.direction, inputData.normalWS, TEXTURE2D_ARGS(_LightGradientMap, sampler_LightGradientMap));
+						diffuseColor += attenuatedLightColor * lerp(_LightDimColor, _LightLitColor, LambertGradient(light.direction, inputData.normalWS, TEXTURE2D_ARGS(_LightGradientMap, sampler_LightGradientMap))).rgb;
+						#elif _LIGHT_GRADIENT_COLOR
+						diffuseColor += LightingLambertGradient(attenuatedLightColor, light.direction, inputData.normalWS, TEXTURE2D_ARGS(_LightGradientMap, sampler_LightGradientMap));
 						#endif
 
 						//shading
@@ -1051,8 +1066,10 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 			#ifdef _LIGHT_SINGLE_STEP
 				float _SingleStepSmoothness;
 				float _SingleStepOffset;
-				half4 _SingleStepLitColor;
-				half4 _SingleStepDimColor;
+			#endif
+			#if defined(_LIGHT_SINGLE_STEP) || defined(_LIGHT_GRADIENT)
+				half4 _LightLitColor;
+				half4 _LightDimColor;
 			#endif
 			CBUFFER_END
 			/*ase_globals*/
@@ -1280,8 +1297,10 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 			#ifdef _LIGHT_SINGLE_STEP
 				float _SingleStepSmoothness;
 				float _SingleStepOffset;
-				half4 _SingleStepLitColor;
-				half4 _SingleStepDimColor;
+			#endif
+			#if defined(_LIGHT_SINGLE_STEP) || defined(_LIGHT_GRADIENT)
+				half4 _LightLitColor;
+				half4 _LightDimColor;
 			#endif
 			CBUFFER_END
 			/*ase_globals*/
@@ -1502,8 +1521,10 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 			#ifdef _LIGHT_SINGLE_STEP
 				float _SingleStepSmoothness;
 				float _SingleStepOffset;
-				half4 _SingleStepLitColor;
-				half4 _SingleStepDimColor;
+			#endif
+			#if defined(_LIGHT_SINGLE_STEP) || defined(_LIGHT_GRADIENT)
+				half4 _LightLitColor;
+				half4 _LightDimColor;
 			#endif
 			CBUFFER_END
 			/*ase_globals*/
@@ -1738,8 +1759,10 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 			#ifdef _LIGHT_SINGLE_STEP
 				float _SingleStepSmoothness;
 				float _SingleStepOffset;
-				half4 _SingleStepLitColor;
-				half4 _SingleStepDimColor;
+			#endif
+			#if defined(_LIGHT_SINGLE_STEP) || defined(_LIGHT_GRADIENT)
+				half4 _LightLitColor;
+				half4 _LightDimColor;
 			#endif
 			CBUFFER_END
 			/*ase_globals*/
