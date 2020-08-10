@@ -17,7 +17,11 @@ namespace M8.URP {
 
             //Initialize editor data
             if(mFeatures == null)
-                mFeatures = new IShaderFeatureEditor[] { new ShaderFeatureToonEditor(), new ShaderFeatureCrossHatchEditor() };
+                mFeatures = new IShaderFeatureEditor[] { 
+                    new ShaderFeatureToonEditor(), 
+                    new ShaderFeatureCrossHatchEditor(),
+                    new ShaderFeatureRimLightEditor() 
+                };
 
             for(int i = 0; i < mFeatures.Length; i++)
                 mFeatures[i].Setup(properties);

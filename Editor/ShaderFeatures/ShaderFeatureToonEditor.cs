@@ -37,7 +37,7 @@ namespace M8.URP {
         }
 
         public void MaterialChanged(Material material) {
-            var lightMode = (LightMode)material.GetFloat(propModeLight);
+            var lightMode = (LightMode)material.GetInt(propModeLight);
             switch(lightMode) {
                 case LightMode.ShadeOnly:
                     CoreUtils.SetKeyword(material, keywordLightShadeOnly, true);
@@ -69,10 +69,8 @@ namespace M8.URP {
         public void OnGUI(MaterialEditor materialEditor) {
             var material = materialEditor.target as Material;
 
-            var _lightMode = (LightMode)material.GetFloat(propModeLight);
-            var lightMode = (LightMode)EditorGUILayout.EnumPopup("Light Mode", _lightMode);
-            if(lightMode != _lightMode)
-                material.SetFloat(propModeLight, (float)lightMode);
+            var lightMode = (LightMode)EditorGUILayout.EnumPopup("Light Mode", (LightMode)material.GetInt(propModeLight));
+            material.SetInt(propModeLight, (int)lightMode);
 
             switch(lightMode) {
                 case LightMode.ShadeOnly:

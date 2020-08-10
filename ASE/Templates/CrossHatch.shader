@@ -2,17 +2,23 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 {
 	Properties
 	{
-		[HideInInspector] _LightMode("__lightMode", Float) = 0.0
-		[HideInInspector] _ShadeMode("__shadeMode", Float) = 0.0
-
-		[HideInInspector] _ShadeGradientMap("Shade Gradient", 2D) = "white" {}
-
+		[HideInInspector] _LightMode("__lightMode", Int) = 0
+		[HideInInspector] _ShadeMode("__shadeMode", Int) = 0
+				
 		[HideInInspector] _SingleStepSmoothness("Smoothness", Float) = 0.1
 		[HideInInspector] _SingleStepOffset("Offset", Float) = 0.5
 		[HideInInspector] _LightLitColor("Light Color", Color) = (1, 1, 1, 1)
 		[HideInInspector] _LightDimColor("Dark Color", Color) = (0.5, 0.5, 0.5, 1)
 
 		[HideInInspector] _LightGradientMap("Light Gradient", 2D) = "white" {}
+
+		[HideInInspector] _ShadeGradientMap("Shade Gradient", 2D) = "white" {}
+
+		[HideInInspector] _RimLightEnabled("__rimLightEnabled", Int) = 0
+		[HideInInspector] _RimLightColor("Rim Color", Color) = (1, 1, 1, 1)
+		[HideInInspector] _RimLightSize("Rim Size", Float) = 0.5
+		[HideInInspector] _RimLightSmoothness("Rim Smoothness", Float) = 0.5
+		[HideInInspector] _RimLightAlign("Rim Alignment", Float) = 0
 
 		/*ase_props*/
 		//_TessPhongStrength( "Tess Phong Strength", Range( 0, 1 ) ) = 0.5
@@ -194,6 +200,7 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 		#pragma shader_feature_local _LIGHT_GRADIENT //use a single-channel lookup and lerp between lit and dim color
 		#pragma shader_feature_local _LIGHT_GRADIENT_COLOR //use gradient as light value and color
 		#pragma shader_feature_local _SHADE_GRADIENT //use a single-channel lookup for light value
+		#pragma shader_feature_local _RIM_LIGHT_ENABLED
 
 		float4 FixedTess( float tessValue )
 		{
@@ -369,6 +376,12 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 			#if defined(_LIGHT_SINGLE_STEP) || defined(_LIGHT_GRADIENT)
 				half4 _LightLitColor;
 				half4 _LightDimColor;
+			#endif
+			#ifdef _RIM_LIGHT_ENABLED
+				half4 _RimLightColor;
+				float _RimLightSize;
+				float _RimLightSmoothness;
+				float _RimLightAlign;
 			#endif
 			CBUFFER_END
 			/*ase_globals*/
@@ -625,6 +638,12 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 				half4 _LightLitColor;
 				half4 _LightDimColor;
 			#endif
+			#ifdef _RIM_LIGHT_ENABLED
+				half4 _RimLightColor;
+				float _RimLightSize;
+				float _RimLightSmoothness;
+				float _RimLightAlign;
+			#endif
 			CBUFFER_END
 
 			#if defined(_LIGHT_GRADIENT) || defined(_LIGHT_GRADIENT_COLOR)
@@ -780,8 +799,7 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 			}
 			#endif
 
-			inline half3 LightingLambertGradient(half3 lightColor, half3 lightDir, half3 normal, TEXTURE2D_PARAM(tex, sampler_tex))
-			{
+			inline half3 LightingLambertGradient(half3 lightColor, half3 lightDir, half3 normal, TEXTURE2D_PARAM(tex, sampler_tex)) {
 				half hNdotL = saturate(dot(normal, lightDir) * 0.5 + 0.5);
 
 				half3 gradient = SAMPLE_TEXTURE2D(tex, sampler_tex, half2(hNdotL, 0.5)).rgb;
@@ -792,6 +810,12 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 			inline half LambertSingleStep(half3 lightDir, half3 normal, half ofs, half smoothness) {
 				half angleDiff = saturate((dot(normal, lightDir) * 0.5 + 0.5) - ofs);
 				return smoothstep(0, smoothness, angleDiff);
+			}
+
+			inline half3 LambertColorGradient(half3 lightDir, half3 normal, TEXTURE2D_PARAM(tex, sampler_tex)) {
+				half hNdotL = saturate(dot(normal, lightDir) * 0.5 + 0.5);
+
+				return SAMPLE_TEXTURE2D(tex, sampler_tex, half2(hNdotL, 0.5)).rgb;
 			}
 
 			inline half LambertGradient(half3 lightDir, half3 normal, TEXTURE2D_PARAM(tex, sampler_tex)) {
@@ -812,6 +836,16 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 				return dot(weights, hatch.abgr) + 4.0 * clamp(lum - 0.75, 0, 0.25);
 			}
 
+			#ifdef _RIM_LIGHT_ENABLED
+			inline float RimTransition(half3 lightDir, half3 normal, half3 viewDir) {
+				half NdotL = dot(normal, lightDir);
+				float rim = 1.0 - dot(viewDir, normal);
+				float spread = 1.0 - _RimLightSize - NdotL * _RimLightAlign;
+				float hSmoothness = _RimLightSmoothness * 0.5;
+				return smoothstep(spread - hSmoothness, spread + hSmoothness, rim);
+			}
+			#endif
+
 			half4 CrossHatchLighting(InputData inputData, half3 diffuse, half4 specularGloss, half smoothness, half3 emission, half4 crossHatch, half3 crossHatchColor, half alpha)
 			{
 				Light mainLight = GetMainLight(inputData.shadowCoord);
@@ -820,18 +854,38 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 				half3 distanceAttenuatedLightColor = mainLight.color * mainLight.distanceAttenuation;
 				half3 attenuatedLightColor = distanceAttenuatedLightColor * mainLight.shadowAttenuation;
 
-				half3 diffuseColor = inputData.bakedGI;
+				//rim lighting
+				#ifdef _RIM_LIGHT_ENABLED
+				float rimTrans = RimTransition(mainLight.direction, inputData.normalWS, inputData.viewDirectionWS);
+				#endif
 
 				//lighting
-				#ifdef _LIGHT_SINGLE_STEP
-				diffuseColor += distanceAttenuatedLightColor * lerp(_LightDimColor, _LightLitColor, LambertSingleStep(mainLight.direction, inputData.normalWS, _SingleStepOffset, _SingleStepSmoothness)).rgb;
-				#elif _LIGHT_GRADIENT
-				diffuseColor += distanceAttenuatedLightColor * lerp(_LightDimColor, _LightLitColor, LambertGradient(mainLight.direction, inputData.normalWS, TEXTURE2D_ARGS(_LightGradientMap, sampler_LightGradientMap))).rgb;
-				#elif _LIGHT_GRADIENT_COLOR
-				diffuseColor += LightingLambertGradient(distanceAttenuatedLightColor, mainLight.direction, inputData.normalWS, TEXTURE2D_ARGS(_LightGradientMap, sampler_LightGradientMap));				
+				half3 diffuseColor = inputData.bakedGI;
+
+				half3 lc;
+
+				#ifdef _LIGHT_SHADE_ONLY
+					lc = mainLight.color;
 				#else
-				diffuseColor += mainLight.color;
+					#ifdef _LIGHT_SINGLE_STEP
+					lc = lerp(_LightDimColor, _LightLitColor, LambertSingleStep(mainLight.direction, inputData.normalWS, _SingleStepOffset, _SingleStepSmoothness)).rgb;
+					#elif _LIGHT_GRADIENT
+					lc = lerp(_LightDimColor, _LightLitColor, LambertGradient(mainLight.direction, inputData.normalWS, TEXTURE2D_ARGS(_LightGradientMap, sampler_LightGradientMap))).rgb;
+					#elif _LIGHT_GRADIENT_COLOR
+					lc = LambertColorGradient(mainLight.direction, inputData.normalWS, TEXTURE2D_ARGS(_LightGradientMap, sampler_LightGradientMap));
+					#else
+					lc = 0.0;
+					#endif
+
+					#ifdef _RIM_LIGHT_ENABLED
+					lc = lerp(lc, _RimLightColor.rgb, rimTrans);
+					#endif
+
+					lc *= distanceAttenuatedLightColor;
 				#endif
+
+				diffuseColor += lc;
+				//
 
 				//shading
 				#if _SHADE_GRADIENT
@@ -840,37 +894,62 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 				half3 shadeColor = inputData.bakedGI + LightingLambert(attenuatedLightColor, mainLight.direction, inputData.normalWS);
 				#endif
 
+				#ifdef _RIM_LIGHT_ENABLED
+				shadeColor += _RimLightColor.rgb * rimTrans;
+				#endif
+				//
+
 				#if _SPECULAR_COLOR
 				half3 specularColor = LightingSpecular(attenuatedLightColor, mainLight.direction, inputData.normalWS, inputData.viewDirectionWS, specularGloss, smoothness);
 				#endif
 
 				#ifdef _ADDITIONAL_LIGHTS
-					uint pixelLightCount = GetAdditionalLightsCount();
-					for (uint lightIndex = 0u; lightIndex < pixelLightCount; ++lightIndex)
-					{
-						Light light = GetAdditionalLight(lightIndex, inputData.positionWS);
-						half3 attenuatedLightColor = light.color * (light.distanceAttenuation * light.shadowAttenuation);
+				uint pixelLightCount = GetAdditionalLightsCount();
+				for (uint lightIndex = 0u; lightIndex < pixelLightCount; ++lightIndex)
+				{
+					Light light = GetAdditionalLight(lightIndex, inputData.positionWS);
+					half3 attenuatedLightColor = light.color * (light.distanceAttenuation * light.shadowAttenuation);
 
-						//lighting
+					#ifdef _RIM_LIGHT_ENABLED
+					rimTrans = RimTransition(light.direction, inputData.normalWS, inputData.viewDirectionWS);
+					#endif
+
+					//lighting
+					#ifndef _LIGHT_SHADE_ONLY
 						#ifdef _LIGHT_SINGLE_STEP
-						diffuseColor += attenuatedLightColor * lerp(_LightDimColor, _LightLitColor, LambertSingleStep(light.direction, inputData.normalWS, _SingleStepOffset, _SingleStepSmoothness)).rgb;
+						lc = lerp(_LightDimColor, _LightLitColor, LambertSingleStep(light.direction, inputData.normalWS, _SingleStepOffset, _SingleStepSmoothness)).rgb;
 						#elif _LIGHT_GRADIENT
-						diffuseColor += attenuatedLightColor * lerp(_LightDimColor, _LightLitColor, LambertGradient(light.direction, inputData.normalWS, TEXTURE2D_ARGS(_LightGradientMap, sampler_LightGradientMap))).rgb;
+						lc = lerp(_LightDimColor, _LightLitColor, LambertGradient(light.direction, inputData.normalWS, TEXTURE2D_ARGS(_LightGradientMap, sampler_LightGradientMap))).rgb;
 						#elif _LIGHT_GRADIENT_COLOR
-						diffuseColor += LightingLambertGradient(attenuatedLightColor, light.direction, inputData.normalWS, TEXTURE2D_ARGS(_LightGradientMap, sampler_LightGradientMap));
-						#endif
-
-						//shading
-						#if _SHADE_GRADIENT
-						shadeColor += LightingLambertGradient(attenuatedLightColor, light.direction, inputData.normalWS, TEXTURE2D_ARGS(_ShadeGradientMap, sampler_ShadeGradientMap));
+						lc = LambertColorGradient(light.direction, inputData.normalWS, TEXTURE2D_ARGS(_LightGradientMap, sampler_LightGradientMap));
 						#else
-						shadeColor += LightingLambert(attenuatedLightColor, light.direction, inputData.normalWS);
+					    lc = 0.0;
 						#endif
 
-						#if _SPECULAR_COLOR
-						specularColor += LightingSpecular(attenuatedLightColor, light.direction, inputData.normalWS, inputData.viewDirectionWS, specularGloss, smoothness);
+						#ifdef _RIM_LIGHT_ENABLED
+						lc = lerp(lc, _RimLightColor.rgb, rimTrans);
 						#endif
-					}
+
+						lc *= attenuatedLightColor;
+
+						diffuseColor += lc;
+					#endif
+
+					//shading
+					#if _SHADE_GRADIENT
+					shadeColor += LightingLambertGradient(attenuatedLightColor, light.direction, inputData.normalWS, TEXTURE2D_ARGS(_ShadeGradientMap, sampler_ShadeGradientMap));
+					#else
+					shadeColor += LightingLambert(attenuatedLightColor, light.direction, inputData.normalWS);
+					#endif
+
+					#ifdef _RIM_LIGHT_ENABLED
+					shadeColor += _RimLightColor.rgb * rimTrans;
+					#endif
+
+					#if _SPECULAR_COLOR
+					specularColor += LightingSpecular(attenuatedLightColor, light.direction, inputData.normalWS, inputData.viewDirectionWS, specularGloss, smoothness);
+					#endif
+				}
 				#endif
 
 				#ifdef _ADDITIONAL_LIGHTS_VERTEX
@@ -1070,6 +1149,12 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 			#if defined(_LIGHT_SINGLE_STEP) || defined(_LIGHT_GRADIENT)
 				half4 _LightLitColor;
 				half4 _LightDimColor;
+			#endif
+			#ifdef _RIM_LIGHT_ENABLED
+				half4 _RimLightColor;
+				float _RimLightSize;
+				float _RimLightSmoothness;
+				float _RimLightAlign;
 			#endif
 			CBUFFER_END
 			/*ase_globals*/
@@ -1302,6 +1387,12 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 				half4 _LightLitColor;
 				half4 _LightDimColor;
 			#endif
+			#ifdef _RIM_LIGHT_ENABLED
+				half4 _RimLightColor;
+				float _RimLightSize;
+				float _RimLightSmoothness;
+				float _RimLightAlign;
+			#endif
 			CBUFFER_END
 			/*ase_globals*/
 
@@ -1525,6 +1616,12 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 			#if defined(_LIGHT_SINGLE_STEP) || defined(_LIGHT_GRADIENT)
 				half4 _LightLitColor;
 				half4 _LightDimColor;
+			#endif
+			#ifdef _RIM_LIGHT_ENABLED
+				half4 _RimLightColor;
+				float _RimLightSize;
+				float _RimLightSmoothness;
+				float _RimLightAlign;
 			#endif
 			CBUFFER_END
 			/*ase_globals*/
@@ -1763,6 +1860,12 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 			#if defined(_LIGHT_SINGLE_STEP) || defined(_LIGHT_GRADIENT)
 				half4 _LightLitColor;
 				half4 _LightDimColor;
+			#endif
+			#ifdef _RIM_LIGHT_ENABLED
+				half4 _RimLightColor;
+				float _RimLightSize;
+				float _RimLightSmoothness;
+				float _RimLightAlign;
 			#endif
 			CBUFFER_END
 			/*ase_globals*/

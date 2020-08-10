@@ -20,7 +20,7 @@ namespace M8.URP {
         }
 
         public void MaterialChanged(Material material) {
-            var shadeMode = (ShadeMode)material.GetFloat(propModeShade);
+            var shadeMode = (ShadeMode)material.GetInt(propModeShade);
             switch(shadeMode) {
                 case ShadeMode.None:
                     CoreUtils.SetKeyword(material, keywordShadeGradient, false);
@@ -34,10 +34,8 @@ namespace M8.URP {
         public void OnGUI(MaterialEditor materialEditor) {
             var material = materialEditor.target as Material;
 
-            var _shadeMode = (ShadeMode)material.GetFloat(propModeShade);
-            var shadeMode = (ShadeMode)EditorGUILayout.EnumPopup("Shade Mode", _shadeMode);
-            if(shadeMode != _shadeMode)
-                material.SetFloat(propModeShade, (float)shadeMode);
+            var shadeMode = (ShadeMode)EditorGUILayout.EnumPopup("Shade Mode", (ShadeMode)material.GetInt(propModeShade));
+            material.SetInt(propModeShade, (int)shadeMode);
 
             switch(shadeMode) {
                 case ShadeMode.Gradient:
