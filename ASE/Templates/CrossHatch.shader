@@ -14,12 +14,6 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 
 		[HideInInspector] _ShadeGradientMap("Shade Gradient", 2D) = "white" {}
 
-		[HideInInspector] _RimLightEnabled("__rimLightEnabled", Int) = 0
-		[HideInInspector] _RimLightColor("Rim Color", Color) = (1, 1, 1, 1)
-		[HideInInspector] _RimLightSize("Rim Size", Float) = 0.5
-		[HideInInspector] _RimLightSmoothness("Rim Smoothness", Float) = 0.5
-		[HideInInspector] _RimLightAlign("Rim Alignment", Float) = 0
-
 		/*ase_props*/
 		//_TessPhongStrength( "Tess Phong Strength", Range( 0, 1 ) ) = 0.5
 		//_TessValue( "Tess Max Tessellation", Range( 1, 32 ) ) = 16
@@ -27,6 +21,9 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 		//_TessMax( "Tess Max Distance", Float ) = 25
 		//_TessEdgeLength ( "Tess Edge length", Range( 2, 50 ) ) = 16
 		//_TessMaxDisp( "Tess Max Displacement", Float ) = 25
+		//_RimLightSize("Rim Light Size", Range(0.0, 1.0)) = 0.5
+		//_RimLightSmoothness("Rim Light Smoothness", Range(0.0, 1.0)) = 0.5
+		//_RimLightAlign("Rim Light Alignment", Range(0.0, 1.0)) = 0
 	}
 
 	SubShader
@@ -65,6 +62,40 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 				Alpha,Additive,Multiply,disable:RemoveDefine:_ALPHAPREMULTIPLY_ON 1
 				disable:SetPropertyOnPass:Forward:BlendRGB,One,Zero
 				disable:SetPropertyOnPass:Forward:BlendAlpha,One,Zero
+			Option:Rim Light:None,Blend,Additive:None
+				None,disable:RemoveDefine:_RIM_LIGHT_BLEND 1
+				None,disable:RemoveDefine:_RIM_LIGHT_ADD 1
+				None,disable:HidePort:Forward:Rim Light Color
+				None,disable:HidePort:Forward:Rim Light Opacity
+				None,disable:HideOption:  Size
+				None,disable:HideOption:  Smoothness
+				None,disable:HideOption:  Align
+				Blend:SetDefine:_RIM_LIGHT_BLEND 1
+				Blend:RemoveDefine:_RIM_LIGHT_ADD 1
+				Blend:ShowPort:Forward:Rim Light Color
+				Blend:ShowPort:Forward:Rim Light Opacity
+				Blend:ShowOption:  Size
+				Blend:ShowOption:  Smoothness
+				Blend:ShowOption:  Align
+				Additive:RemoveDefine:_RIM_LIGHT_BLEND 1
+				Additive:SetDefine:_RIM_LIGHT_ADD 1
+				Additive:ShowPort:Forward:Rim Light Color
+				Additive:ShowPort:Forward:Rim Light Opacity
+				Additive:ShowOption:  Size
+				Additive:ShowOption:  Smoothness
+				Additive:ShowOption:  Align
+			Field:  Size:Float:0.5:0:1:_RimLightSize
+				Change:SetMaterialProperty:_RimLightSize
+				Change:SetShaderProperty:_RimLightSize,_RimLightSize("Rim Light Size", Range(0.0, 1.0)) = 0.5
+				Inline,disable:SetShaderProperty:_RimLightSize
+			Field:  Smoothness:Float:0.5:0:1:_RimLightSize
+				Change:SetMaterialProperty:_RimLightSmoothness
+				Change:SetShaderProperty:_RimLightSmoothness,_RimLightSmoothness("Rim Light Smoothness", Range(0.0, 1.0)) = 0.5
+				Inline,disable:SetShaderProperty:_RimLightSmoothness
+			Field:  Align:Float:0:0:1:_RimLightAlign
+				Change:SetMaterialProperty:_RimLightAlign
+				Change:SetShaderProperty:_RimLightAlign,_RimLightAlign("Rim Light Alignment", Range(0.0, 1.0)) = 0
+				Inline,disable:SetShaderProperty:_RimLightAlign
 			Option:Two Sided:On,Cull Back,Cull Front:Cull Back
 				On:SetPropertyOnSubShader:CullMode,Off
 				Cull Back:SetPropertyOnSubShader:CullMode,Back
@@ -200,7 +231,6 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 		#pragma shader_feature_local _LIGHT_GRADIENT //use a single-channel lookup and lerp between lit and dim color
 		#pragma shader_feature_local _LIGHT_GRADIENT_COLOR //use gradient as light value and color
 		#pragma shader_feature_local _SHADE_GRADIENT //use a single-channel lookup for light value
-		#pragma shader_feature_local _RIM_LIGHT_ENABLED
 
 		float4 FixedTess( float tessValue )
 		{
@@ -377,8 +407,7 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 				half4 _LightLitColor;
 				half4 _LightDimColor;
 			#endif
-			#ifdef _RIM_LIGHT_ENABLED
-				half4 _RimLightColor;
+			#if defined(_RIM_LIGHT_BLEND) || defined(_RIM_LIGHT_ADD)
 				float _RimLightSize;
 				float _RimLightSmoothness;
 				float _RimLightAlign;
@@ -638,8 +667,7 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 				half4 _LightLitColor;
 				half4 _LightDimColor;
 			#endif
-			#ifdef _RIM_LIGHT_ENABLED
-				half4 _RimLightColor;
+			#if defined(_RIM_LIGHT_BLEND) || defined(_RIM_LIGHT_ADD)
 				float _RimLightSize;
 				float _RimLightSmoothness;
 				float _RimLightAlign;
@@ -836,7 +864,7 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 				return dot(weights, hatch.abgr) + 4.0 * clamp(lum - 0.75, 0, 0.25);
 			}
 
-			#ifdef _RIM_LIGHT_ENABLED
+			#if defined(_RIM_LIGHT_BLEND) || defined(_RIM_LIGHT_ADD)
 			inline float RimTransition(half3 lightDir, half3 normal, half3 viewDir) {
 				half NdotL = dot(normal, lightDir);
 				float rim = 1.0 - dot(viewDir, normal);
@@ -846,7 +874,7 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 			}
 			#endif
 
-			half4 CrossHatchLighting(InputData inputData, half3 diffuse, half4 specularGloss, half smoothness, half3 emission, half4 crossHatch, half3 crossHatchColor, half alpha)
+			half4 CrossHatchLighting(InputData inputData, half3 diffuse, half4 specularGloss, half smoothness, half3 emission, half4 crossHatch, half3 crossHatchColor, half4 rimLight, half alpha)
 			{
 				Light mainLight = GetMainLight(inputData.shadowCoord);
 				MixRealtimeAndBakedGI(mainLight, inputData.normalWS, inputData.bakedGI, half4(0, 0, 0, 0));
@@ -855,7 +883,7 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 				half3 attenuatedLightColor = distanceAttenuatedLightColor * mainLight.shadowAttenuation;
 
 				//rim lighting
-				#ifdef _RIM_LIGHT_ENABLED
+				#if defined(_RIM_LIGHT_BLEND) || defined(_RIM_LIGHT_ADD)
 				float rimTrans = RimTransition(mainLight.direction, inputData.normalWS, inputData.viewDirectionWS);
 				#endif
 
@@ -877,8 +905,10 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 					lc = 0.0;
 					#endif
 
-					#ifdef _RIM_LIGHT_ENABLED
-					lc = lerp(lc, _RimLightColor.rgb, rimTrans);
+					#ifdef _RIM_LIGHT_BLEND
+					lc = lerp(lc, rimLight.rgb, rimTrans * rimLight.a);
+					#elif _RIM_LIGHT_ADD
+					lc += rimLight.rgb * rimTrans * rimLight.a;
 					#endif
 
 					lc *= distanceAttenuatedLightColor;
@@ -894,8 +924,8 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 				half3 shadeColor = inputData.bakedGI + LightingLambert(attenuatedLightColor, mainLight.direction, inputData.normalWS);
 				#endif
 
-				#ifdef _RIM_LIGHT_ENABLED
-				shadeColor += _RimLightColor.rgb * rimTrans;
+				#if defined(_RIM_LIGHT_BLEND) || defined(_RIM_LIGHT_ADD)
+				shadeColor += rimLight.rgb * rimTrans * rimLight.a;
 				#endif
 				//
 
@@ -910,7 +940,7 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 					Light light = GetAdditionalLight(lightIndex, inputData.positionWS);
 					half3 attenuatedLightColor = light.color * (light.distanceAttenuation * light.shadowAttenuation);
 
-					#ifdef _RIM_LIGHT_ENABLED
+					#if defined(_RIM_LIGHT_BLEND) || defined(_RIM_LIGHT_ADD)
 					rimTrans = RimTransition(light.direction, inputData.normalWS, inputData.viewDirectionWS);
 					#endif
 
@@ -926,8 +956,10 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 					    lc = 0.0;
 						#endif
 
-						#ifdef _RIM_LIGHT_ENABLED
-						lc = lerp(lc, _RimLightColor.rgb, rimTrans);
+						#ifdef _RIM_LIGHT_BLEND
+						lc = lerp(lc, rimLight.rgb, rimTrans * rimLight.a);
+						#elif _RIM_LIGHT_ADD
+						lc += rimLight.rgb * rimTrans * rimLight.a;
 						#endif
 
 						lc *= attenuatedLightColor;
@@ -942,8 +974,8 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 					shadeColor += LightingLambert(attenuatedLightColor, light.direction, inputData.normalWS);
 					#endif
 
-					#ifdef _RIM_LIGHT_ENABLED
-					shadeColor += _RimLightColor.rgb * rimTrans;
+					#if defined(_RIM_LIGHT_BLEND) || defined(_RIM_LIGHT_ADD)
+					shadeColor += rimLight.rgb * rimTrans * rimLight.a;
 					#endif
 
 					#if _SPECULAR_COLOR
@@ -1014,6 +1046,8 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 				float Smoothness = /*ase_frag_out:Smoothness;Float;4*/0.5/*end*/;
 				float4 ShadeLookUp = /*ase_frag_out:Shade Look-Up;Float4;101*/float4(0, 0.25, 0.5, 0.75)/*end*/;
 				float3 ShadeColor = /*ase_frag_out:Shade Color;Float3;102*/0/*end*/;
+				float3 rimLightColor = /*ase_frag_out:Rim Light Color;Float3;103*/1/*end*/;
+				float rimLightAlpha = /*ase_frag_out:Rim Light Opacity;Float;104*/1/*end*/;
 				float Alpha = /*ase_frag_out:Alpha;Float;6;-1;_Alpha*/1/*end*/;
 				float AlphaClipThreshold = /*ase_frag_out:Alpha Clip Threshold;Float;7;-1;_AlphaClip*/0.5/*end*/;
 				float3 BakedGI = /*ase_frag_out:Baked GI;Float3;11;-1;_BakedGI*/0/*end*/;
@@ -1059,7 +1093,7 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 					half4 spec = half4(0, 0, 0, 1);
 				#endif
 
-				half4 color = CrossHatchLighting(inputData, Albedo, spec, spec.a, Emission, ShadeLookUp, ShadeColor, Alpha);
+				half4 color = CrossHatchLighting(inputData, Albedo, spec, spec.a, Emission, ShadeLookUp, ShadeColor, half4(rimLightColor, rimLightAlpha), Alpha);
 				//
 
 				#ifdef _REFRACTION_ASE
@@ -1150,8 +1184,7 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 				half4 _LightLitColor;
 				half4 _LightDimColor;
 			#endif
-			#ifdef _RIM_LIGHT_ENABLED
-				half4 _RimLightColor;
+			#if defined(_RIM_LIGHT_BLEND) || defined(_RIM_LIGHT_ADD)
 				float _RimLightSize;
 				float _RimLightSmoothness;
 				float _RimLightAlign;
@@ -1387,8 +1420,7 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 				half4 _LightLitColor;
 				half4 _LightDimColor;
 			#endif
-			#ifdef _RIM_LIGHT_ENABLED
-				half4 _RimLightColor;
+			#if defined(_RIM_LIGHT_BLEND) || defined(_RIM_LIGHT_ADD)
 				float _RimLightSize;
 				float _RimLightSmoothness;
 				float _RimLightAlign;
@@ -1617,8 +1649,7 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 				half4 _LightLitColor;
 				half4 _LightDimColor;
 			#endif
-			#ifdef _RIM_LIGHT_ENABLED
-				half4 _RimLightColor;
+			#if defined(_RIM_LIGHT_BLEND) || defined(_RIM_LIGHT_ADD)
 				float _RimLightSize;
 				float _RimLightSmoothness;
 				float _RimLightAlign;
@@ -1861,8 +1892,7 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 				half4 _LightLitColor;
 				half4 _LightDimColor;
 			#endif
-			#ifdef _RIM_LIGHT_ENABLED
-				half4 _RimLightColor;
+			#if defined(_RIM_LIGHT_BLEND) || defined(_RIM_LIGHT_ADD)
 				float _RimLightSize;
 				float _RimLightSmoothness;
 				float _RimLightAlign;

@@ -20,7 +20,7 @@ namespace M8.URP {
                 mFeatures = new IShaderFeatureEditor[] { 
                     new ShaderFeatureToonEditor(), 
                     new ShaderFeatureCrossHatchEditor(),
-                    new ShaderFeatureRimLightEditor() 
+                    //new ShaderFeatureRimLightEditor() 
                 };
 
             for(int i = 0; i < mFeatures.Length; i++)
