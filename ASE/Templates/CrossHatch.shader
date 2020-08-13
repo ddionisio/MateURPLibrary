@@ -15,15 +15,16 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 		[HideInInspector] _ShadeGradientMap("Shade Gradient", 2D) = "white" {}
 
 		/*ase_props*/
+		//_SpecEdgeSmoothness("Specular Edge Smoothness", Range(0.0, 1.0)) = 0.0
+		//_RimLightSize("Rim Light Size", Range(0.0, 1.0)) = 0.5
+		//_RimLightSmoothness("Rim Light Smoothness", Range(0.0, 1.0)) = 0.5
+		//_RimLightAlign("Rim Light Alignment", Range(0.0, 1.0)) = 0
 		//_TessPhongStrength( "Tess Phong Strength", Range( 0, 1 ) ) = 0.5
 		//_TessValue( "Tess Max Tessellation", Range( 1, 32 ) ) = 16
 		//_TessMin( "Tess Min Distance", Float ) = 10
 		//_TessMax( "Tess Max Distance", Float ) = 25
 		//_TessEdgeLength ( "Tess Edge length", Range( 2, 50 ) ) = 16
 		//_TessMaxDisp( "Tess Max Displacement", Float ) = 25
-		//_RimLightSize("Rim Light Size", Range(0.0, 1.0)) = 0.5
-		//_RimLightSmoothness("Rim Light Smoothness", Range(0.0, 1.0)) = 0.5
-		//_RimLightAlign("Rim Light Alignment", Range(0.0, 1.0)) = 0
 	}
 
 	SubShader
@@ -62,24 +63,44 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 				Alpha,Additive,Multiply,disable:RemoveDefine:_ALPHAPREMULTIPLY_ON 1
 				disable:SetPropertyOnPass:Forward:BlendRGB,One,Zero
 				disable:SetPropertyOnPass:Forward:BlendAlpha,One,Zero
+			Option:Specular Light:None,Normal,Toon:None
+				None,disable:RemoveDefine:_SPECULAR_COLOR 1
+				None,disable:RemoveDefine:_SPECULAR_TOON 1
+				None,disable:HidePort:Forward:Specular
+				None,disable:HidePort:Forward:Smoothness
+				None,disable:HideOption:  Edge Smoothness
+				Normal:SetDefine:_SPECULAR_COLOR 1
+				Normal:RemoveDefine:_SPECULAR_TOON 1
+				Normal:ShowPort:Forward:Specular
+				Normal:ShowPort:Forward:Smoothness
+				Normal:HideOption:  Edge Smoothness
+				Toon:RemoveDefine:_SPECULAR_COLOR 1
+				Toon:SetDefine:_SPECULAR_TOON 1
+				Toon:ShowPort:Forward:Specular
+				Toon:ShowPort:Forward:Smoothness
+				Toon:ShowOption:  Edge Smoothness
+			Field:  Edge Smoothness:Float:0:0:1:_SpecEdgeSmoothness
+				Change:SetMaterialProperty:_SpecEdgeSmoothness
+				Change:SetShaderProperty:_SpecEdgeSmoothness,_SpecEdgeSmoothness("Specular Edge Smoothness", Range(0.0, 1.0)) = 0.0
+				Inline,disable:SetShaderProperty:_SpecEdgeSmoothness
 			Option:Rim Light:None,Blend,Additive:None
 				None,disable:RemoveDefine:_RIM_LIGHT_BLEND 1
 				None,disable:RemoveDefine:_RIM_LIGHT_ADD 1
-				None,disable:HidePort:Forward:Rim Light Color
+				None,disable:HidePort:Forward:Rim Light
 				None,disable:HidePort:Forward:Rim Light Opacity
 				None,disable:HideOption:  Size
 				None,disable:HideOption:  Smoothness
 				None,disable:HideOption:  Align
 				Blend:SetDefine:_RIM_LIGHT_BLEND 1
 				Blend:RemoveDefine:_RIM_LIGHT_ADD 1
-				Blend:ShowPort:Forward:Rim Light Color
+				Blend:ShowPort:Forward:Rim Light
 				Blend:ShowPort:Forward:Rim Light Opacity
 				Blend:ShowOption:  Size
 				Blend:ShowOption:  Smoothness
 				Blend:ShowOption:  Align
 				Additive:RemoveDefine:_RIM_LIGHT_BLEND 1
 				Additive:SetDefine:_RIM_LIGHT_ADD 1
-				Additive:ShowPort:Forward:Rim Light Color
+				Additive:ShowPort:Forward:Rim Light
 				Additive:ShowPort:Forward:Rim Light Opacity
 				Additive:ShowOption:  Size
 				Additive:ShowOption:  Smoothness
@@ -211,8 +232,6 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 				On:SetDefine:_ALPHATEST_ON 1
 			Port:Forward:Normal
 				On:SetDefine:_NORMALMAP 1
-			Port:Forward:Specular
-				On:SetDefine:_SPECULAR_COLOR 1
 		*/
 
 		Tags
@@ -406,6 +425,9 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 			#if defined(_LIGHT_SINGLE_STEP) || defined(_LIGHT_GRADIENT)
 				half4 _LightLitColor;
 				half4 _LightDimColor;
+			#endif
+			#ifdef _SPECULAR_TOON
+				float _SpecEdgeSmoothness;
 			#endif
 			#if defined(_RIM_LIGHT_BLEND) || defined(_RIM_LIGHT_ADD)
 				float _RimLightSize;
@@ -667,6 +689,9 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 				half4 _LightLitColor;
 				half4 _LightDimColor;
 			#endif
+			#ifdef _SPECULAR_TOON
+				float _SpecEdgeSmoothness;
+			#endif
 			#if defined(_RIM_LIGHT_BLEND) || defined(_RIM_LIGHT_ADD)
 				float _RimLightSize;
 				float _RimLightSmoothness;
@@ -874,7 +899,17 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 			}
 			#endif
 
-			half4 CrossHatchLighting(InputData inputData, half3 diffuse, half4 specularGloss, half smoothness, half3 emission, half4 crossHatch, half3 crossHatchColor, half4 rimLight, half alpha)
+			#ifdef _SPECULAR_TOON
+			inline half3 LightingSpecularToon(half3 lightColor, half3 lightDir, half3 normal, half3 viewDir, half4 specular, half smoothness) {
+				float3 hVec = normalize(lightDir + viewDir);
+				float NdotH = dot(normal, hVec) * 0.5 + 0.5;
+				float s = saturate(pow(NdotH, smoothness));
+				half sr = smoothstep(0.5 - _SpecEdgeSmoothness * 0.1, 0.5 + _SpecEdgeSmoothness * 0.1, s);
+				return lightColor * specular.rgb * sr;
+			}
+			#endif
+
+			half4 CrossHatchLighting(InputData inputData, half3 diffuse, half4 specularGloss, half3 emission, half4 crossHatch, half3 crossHatchColor, half4 rimLight, half alpha)
 			{
 				Light mainLight = GetMainLight(inputData.shadowCoord);
 				MixRealtimeAndBakedGI(mainLight, inputData.normalWS, inputData.bakedGI, half4(0, 0, 0, 0));
@@ -930,7 +965,9 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 				//
 
 				#if _SPECULAR_COLOR
-				half3 specularColor = LightingSpecular(attenuatedLightColor, mainLight.direction, inputData.normalWS, inputData.viewDirectionWS, specularGloss, smoothness);
+				half3 specularColor = LightingSpecular(attenuatedLightColor, mainLight.direction, inputData.normalWS, inputData.viewDirectionWS, specularGloss, specularGloss.a);
+				#elif _SPECULAR_TOON
+				half3 specularColor = LightingSpecularToon(attenuatedLightColor, mainLight.direction, inputData.normalWS, inputData.viewDirectionWS, specularGloss, specularGloss.a);
 				#endif
 
 				#ifdef _ADDITIONAL_LIGHTS
@@ -979,7 +1016,9 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 					#endif
 
 					#if _SPECULAR_COLOR
-					specularColor += LightingSpecular(attenuatedLightColor, light.direction, inputData.normalWS, inputData.viewDirectionWS, specularGloss, smoothness);
+					specularColor += LightingSpecular(attenuatedLightColor, light.direction, inputData.normalWS, inputData.viewDirectionWS, specularGloss, specularGloss.a);
+					#elif _SPECULAR_TOON
+					specularColor += LightingSpecularToon(attenuatedLightColor, light.direction, inputData.normalWS, inputData.viewDirectionWS, specularGloss, specularGloss.a);
 					#endif
 				}
 				#endif
@@ -995,7 +1034,7 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 
 				half3 finalColor = (diffuseColor * diffuse) + emission;
 
-				#if _SPECULAR_COLOR
+				#if defined(_SPECULAR_COLOR) || defined(_SPECULAR_TOON)
 					#ifndef _LIGHT_SHADE_ONLY
 					finalColor += specularColor;
 					#endif
@@ -1009,6 +1048,10 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 				finalColor = lerp(crossHatchColor, finalColor, shade);
 
 				return half4(finalColor, alpha);
+			}
+
+			void dick(sampler2D a) {
+
 			}
 
 			half4 frag ( VertexOutput IN /*ase_frag_input*/ ) : SV_Target
@@ -1042,12 +1085,12 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 				float3 Albedo = /*ase_frag_out:Albedo;Float3;0;-1;_Albedo*/float3(0.5, 0.5, 0.5)/*end*/;
 				float3 Normal = /*ase_frag_out:Normal;Float3;1*/float3(0, 0, 1)/*end*/;
 				float3 Emission = /*ase_frag_out:Emission;Float3;2;-1;_Emission*/0/*end*/;
-				float3 Specular = /*ase_frag_out:Specular;Float3;9*/0.5/*end*/;
-				float Smoothness = /*ase_frag_out:Smoothness;Float;4*/0.5/*end*/;
 				float4 ShadeLookUp = /*ase_frag_out:Shade Look-Up;Float4;101*/float4(0, 0.25, 0.5, 0.75)/*end*/;
-				float3 ShadeColor = /*ase_frag_out:Shade Color;Float3;102*/0/*end*/;
-				float3 rimLightColor = /*ase_frag_out:Rim Light Color;Float3;103*/1/*end*/;
-				float rimLightAlpha = /*ase_frag_out:Rim Light Opacity;Float;104*/1/*end*/;
+				float3 ShadeColor = /*ase_frag_out:Shade;Float3;102*/0/*end*/;
+				float3 Specular = /*ase_frag_out:Specular;Float3;103*/0.5/*end*/;
+				float Smoothness = /*ase_frag_out:Smoothness;Float;104*/0.5/*end*/;
+				float3 rimLightColor = /*ase_frag_out:Rim Light;Float3;105*/1/*end*/;
+				float rimLightAlpha = /*ase_frag_out:Rim Light Opacity;Float;106*/1/*end*/;
 				float Alpha = /*ase_frag_out:Alpha;Float;6;-1;_Alpha*/1/*end*/;
 				float AlphaClipThreshold = /*ase_frag_out:Alpha Clip Threshold;Float;7;-1;_AlphaClip*/0.5/*end*/;
 				float3 BakedGI = /*ase_frag_out:Baked GI;Float3;11;-1;_BakedGI*/0/*end*/;
@@ -1089,11 +1132,13 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 				//Lighting
 				#if _SPECULAR_COLOR
 					half4 spec = half4(Specular, exp2(10 * Smoothness + 1));
+				#elif _SPECULAR_TOON
+					half4 spec = half4(Specular, 100 * Smoothness * Smoothness);
 				#else
 					half4 spec = half4(0, 0, 0, 1);
 				#endif
 
-				half4 color = CrossHatchLighting(inputData, Albedo, spec, spec.a, Emission, ShadeLookUp, ShadeColor, half4(rimLightColor, rimLightAlpha), Alpha);
+				half4 color = CrossHatchLighting(inputData, Albedo, spec, Emission, ShadeLookUp, ShadeColor, half4(rimLightColor, rimLightAlpha), Alpha);
 				//
 
 				#ifdef _REFRACTION_ASE
@@ -1183,6 +1228,9 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 			#if defined(_LIGHT_SINGLE_STEP) || defined(_LIGHT_GRADIENT)
 				half4 _LightLitColor;
 				half4 _LightDimColor;
+			#endif
+			#ifdef _SPECULAR_TOON
+				float _SpecEdgeSmoothness;
 			#endif
 			#if defined(_RIM_LIGHT_BLEND) || defined(_RIM_LIGHT_ADD)
 				float _RimLightSize;
@@ -1420,6 +1468,9 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 				half4 _LightLitColor;
 				half4 _LightDimColor;
 			#endif
+			#ifdef _SPECULAR_TOON
+				float _SpecEdgeSmoothness;
+			#endif
 			#if defined(_RIM_LIGHT_BLEND) || defined(_RIM_LIGHT_ADD)
 				float _RimLightSize;
 				float _RimLightSmoothness;
@@ -1648,6 +1699,9 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 			#if defined(_LIGHT_SINGLE_STEP) || defined(_LIGHT_GRADIENT)
 				half4 _LightLitColor;
 				half4 _LightDimColor;
+			#endif
+			#ifdef _SPECULAR_TOON
+				float _SpecEdgeSmoothness;
 			#endif
 			#if defined(_RIM_LIGHT_BLEND) || defined(_RIM_LIGHT_ADD)
 				float _RimLightSize;
@@ -1891,6 +1945,9 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 			#if defined(_LIGHT_SINGLE_STEP) || defined(_LIGHT_GRADIENT)
 				half4 _LightLitColor;
 				half4 _LightDimColor;
+			#endif
+			#ifdef _SPECULAR_TOON
+				float _SpecEdgeSmoothness;
 			#endif
 			#if defined(_RIM_LIGHT_BLEND) || defined(_RIM_LIGHT_ADD)
 				float _RimLightSize;
