@@ -7,7 +7,7 @@ using UnityEditor.Rendering.Universal;
 using UnityEditor;
 
 namespace M8.URP {
-    public class CrossHatchShaderInspector : ShaderGUI {
+    public class ToonShaderInspector : ShaderGUI {
         public IShaderFeatureEditor[] mFeatures;
 
         private bool mIsInit = false;
@@ -17,9 +17,8 @@ namespace M8.URP {
 
             //Initialize editor data
             if(mFeatures == null)
-                mFeatures = new IShaderFeatureEditor[] { 
-                    new ShaderFeatureToonEditor(), 
-                    new ShaderFeatureCrossHatchEditor(),
+                mFeatures = new IShaderFeatureEditor[] {
+                    new ShaderFeatureToonEditor(),
                     //new ShaderFeatureRimLightEditor() 
                 };
 
