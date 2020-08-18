@@ -60,26 +60,26 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Toon" /*end*/
 				Premultiply:SetDefine:_ALPHAPREMULTIPLY_ON 1
 				Alpha,Additive,Multiply,disable:RemoveDefine:_ALPHAPREMULTIPLY_ON 1
 				disable:SetPropertyOnPass:Forward:BlendRGB,One,Zero
-				disable:SetPropertyOnPass:Forward:BlendAlpha,One,Zero			
+				disable:SetPropertyOnPass:Forward:BlendAlpha,One,Zero
+			Option:Sharp Light:false,true:false
+				false,disable:RemoveDefine:_LIGHT_SHARPNESS 1
+				true:SetDefine:_LIGHT_SHARPNESS 1
 			Option:Rim Light:None,Blend,Additive:None
 				None,disable:RemoveDefine:_RIM_LIGHT_BLEND 1
 				None,disable:RemoveDefine:_RIM_LIGHT_ADD 1
 				None,disable:HidePort:Forward:Rim Light
-				None,disable:HidePort:Forward:Rim Light Opacity
 				None,disable:HideOption:  Size
 				None,disable:HideOption:  Smoothness
 				None,disable:HideOption:  Align
 				Blend:SetDefine:_RIM_LIGHT_BLEND 1
 				Blend:RemoveDefine:_RIM_LIGHT_ADD 1
 				Blend:ShowPort:Forward:Rim Light
-				Blend:ShowPort:Forward:Rim Light Opacity
 				Blend:ShowOption:  Size
 				Blend:ShowOption:  Smoothness
 				Blend:ShowOption:  Align
 				Additive:RemoveDefine:_RIM_LIGHT_BLEND 1
 				Additive:SetDefine:_RIM_LIGHT_ADD 1
 				Additive:ShowPort:Forward:Rim Light
-				Additive:ShowPort:Forward:Rim Light Opacity
 				Additive:ShowOption:  Size
 				Additive:ShowOption:  Smoothness
 				Additive:ShowOption:  Align
@@ -905,9 +905,15 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Toon" /*end*/
 				return lc;
 			}
 
-			half4 Lighting(InputData inputData, half3 diffuse, half4 specularGloss, half3 emission, half4 rimLight, half alpha) {
+			half4 Lighting(InputData inputData, half3 diffuse, half4 specularGloss, half3 emission, half4 rimLight, half4 shadowColor, half alpha) {
 				Light mainLight = GetMainLight(inputData.shadowCoord);
 				MixRealtimeAndBakedGI(mainLight, inputData.normalWS, inputData.bakedGI, half4(0, 0, 0, 0));
+
+				float dist = mainLight.distanceAttenuation;
+
+				#ifdef _LIGHT_SHARPNESS
+				dist = smoothstep(0.49, 0.51, dist);
+				#endif
 
 				float shadow = mainLight.shadowAttenuation;
 
@@ -916,12 +922,21 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Toon" /*end*/
 				shadow = smoothstep(0.5 - _shadow, 0.5 + _shadow + 0.0001, shadow);
 				#endif
 
-				half3 attenuatedLightColor = mainLight.color * (mainLight.distanceAttenuation * shadow);
+				half3 distanceLightColor = mainLight.color * dist;
+
+				#if !defined(_SHADOW_COLOR) || defined(_SPECULAR_COLOR)
+				half3 attenuatedLightColor = distanceLightColor * shadow;
+				#endif
 
 				//lighting
 				half3 diffuseColor = inputData.bakedGI;
 
+				#ifdef _SHADOW_COLOR
+				half3 lc = ComputeLightColor(distanceLightColor, rimLight, mainLight.direction, inputData.normalWS, inputData.viewDirectionWS);
+				lc = lerp(lerp(lc, shadowColor.rgb, shadowColor.a), lc, shadow);
+				#else
 				half3 lc = ComputeLightColor(attenuatedLightColor, rimLight, mainLight.direction, inputData.normalWS, inputData.viewDirectionWS);
+				#endif				
 
 				diffuseColor += lc;
 				//
@@ -932,9 +947,14 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Toon" /*end*/
 
 				#ifdef _ADDITIONAL_LIGHTS
 				uint pixelLightCount = GetAdditionalLightsCount();
-				for (uint lightIndex = 0u; lightIndex < pixelLightCount; ++lightIndex)
-				{
+				for (uint lightIndex = 0u; lightIndex < pixelLightCount; ++lightIndex) {
 					Light light = GetAdditionalLight(lightIndex, inputData.positionWS);
+
+					dist = light.distanceAttenuation;
+
+					#ifdef _LIGHT_SHARPNESS
+					dist = smoothstep(0.49, 0.51, dist);
+					#endif
 
 					shadow = light.shadowAttenuation;
 
@@ -942,11 +962,20 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Toon" /*end*/
 					shadow = smoothstep(0, fwidth(shadow) + 0.0001, shadow);
 					#endif
 
-					attenuatedLightColor = light.color * (light.distanceAttenuation * shadow);
+					distanceLightColor = light.color * dist;
+
+					#if !defined(_SHADOW_COLOR) || defined(_SPECULAR_COLOR)
+					attenuatedLightColor = distanceLightColor * shadow;
+					#endif
 
 					//lighting
 					#ifndef _LIGHT_SHADE_ONLY
-					lc = ComputeLightColor(attenuatedLightColor, rimLight, light.direction, inputData.normalWS, inputData.viewDirectionWS);
+						#ifdef _SHADOW_COLOR
+						lc = ComputeLightColor(distanceLightColor, rimLight, light.direction, inputData.normalWS, inputData.viewDirectionWS);
+						lc = lerp(lerp(lc, shadowColor.rgb, shadowColor.a), lc, shadow);
+						#else
+						lc = ComputeLightColor(attenuatedLightColor, rimLight, light.direction, inputData.normalWS, inputData.viewDirectionWS);
+						#endif
 
 					diffuseColor += lc;
 					#endif
@@ -961,77 +990,6 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Toon" /*end*/
 				diffuseColor += inputData.vertexLighting;
 				#endif
 				
-				half3 finalColor = (diffuseColor * diffuse) + emission;
-
-				#ifdef _SPECULAR_COLOR
-				finalColor += specularColor;
-				#endif
-
-				return half4(finalColor, alpha);
-			}
-
-			half4 LightingShadowColor(InputData inputData, half3 diffuse, half4 specularGloss, half3 emission, half4 rimLight, half4 shadowColor, half alpha) {
-				Light mainLight = GetMainLight(inputData.shadowCoord);
-				MixRealtimeAndBakedGI(mainLight, inputData.normalWS, inputData.bakedGI, half4(0, 0, 0, 0));
-
-				float shadow = mainLight.shadowAttenuation;
-
-				#ifdef _SHADOW_SHARPNESS
-				float _shadow = fwidth(mainLight.shadowAttenuation) * 0.5;
-				shadow = smoothstep(0.5 - _shadow, 0.5 + _shadow + 0.0001, shadow);
-				#endif
-
-				half3 distanceLightColor = mainLight.color * mainLight.distanceAttenuation;
-
-				//lighting
-				half3 diffuseColor = inputData.bakedGI;
-
-				half3 lc = ComputeLightColor(distanceLightColor, rimLight, mainLight.direction, inputData.normalWS, inputData.viewDirectionWS);
-
-				lc = lerp(lerp(lc, shadowColor.rgb, shadowColor.a), lc, shadow);
-
-				diffuseColor += lc;
-				//
-
-				#if _SPECULAR_COLOR
-				half3 attenuatedLightColor = distanceLightColor * shadow;
-				half3 specularColor = LightingSpecularToon(attenuatedLightColor, mainLight.direction, inputData.normalWS, inputData.viewDirectionWS, specularGloss);
-				#endif
-
-				#ifdef _ADDITIONAL_LIGHTS
-				uint pixelLightCount = GetAdditionalLightsCount();
-				for (uint lightIndex = 0u; lightIndex < pixelLightCount; ++lightIndex)
-				{
-					Light light = GetAdditionalLight(lightIndex, inputData.positionWS);
-
-					shadow = light.shadowAttenuation;
-
-					#ifdef _SHADOW_SHARPNESS
-					shadow = smoothstep(0, fwidth(shadow) + 0.0001, shadow);
-					#endif
-
-					distanceLightColor = light.color * light.distanceAttenuation;					
-
-					//lighting
-					#ifndef _LIGHT_SHADE_ONLY
-					lc = ComputeLightColor(distanceLightColor, rimLight, light.direction, inputData.normalWS, inputData.viewDirectionWS);
-
-					lc = lerp(lerp(lc, shadowColor.rgb, shadowColor.a), lc, shadow);
-
-					diffuseColor += lc;
-					#endif
-
-					#if _SPECULAR_COLOR
-					attenuatedLightColor = distanceLightColor * shadow;
-					specularColor += LightingSpecularToon(attenuatedLightColor, light.direction, inputData.normalWS, inputData.viewDirectionWS, specularGloss);
-					#endif
-				}
-				#endif
-
-				#ifdef _ADDITIONAL_LIGHTS_VERTEX
-				diffuseColor += inputData.vertexLighting;
-				#endif
-
 				half3 finalColor = (diffuseColor * diffuse) + emission;
 
 				#ifdef _SPECULAR_COLOR
@@ -1074,9 +1032,8 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Toon" /*end*/
 				float3 Emission = /*ase_frag_out:Emission;Float3;2;-1;_Emission*/0/*end*/;
 				float3 Specular = /*ase_frag_out:Specular;Float3;103*/0.5/*end*/;
 				float Smoothness = /*ase_frag_out:Smoothness;Float;104*/0.5/*end*/;
-				float3 rimLightColor = /*ase_frag_out:Rim Light;Float3;105*/1/*end*/;
-				float rimLightAlpha = /*ase_frag_out:Rim Light Opacity;Float;106*/1/*end*/;
-				float4 Shadow = /*ase_frag_out:Shadow;Float4;107*/float4(0,0,0,1)/*end*/;
+				float4 rimLightColor = /*ase_frag_out:Rim Light;Float4;105*/1/*end*/;
+				float4 Shadow = /*ase_frag_out:Shadow;Float4;106*/float4(0,0,0,1)/*end*/;
 				float Alpha = /*ase_frag_out:Alpha;Float;6;-1;_Alpha*/1/*end*/;
 				float AlphaClipThreshold = /*ase_frag_out:Alpha Clip Threshold;Float;7;-1;_AlphaClip*/0.5/*end*/;
 				float3 BakedGI = /*ase_frag_out:Baked GI;Float3;11;-1;_BakedGI*/0/*end*/;
@@ -1122,11 +1079,7 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Toon" /*end*/
 					half4 spec = half4(0, 0, 0, 1);
 				#endif
 
-				#ifdef _SHADOW_COLOR
-				half4 color = LightingShadowColor(inputData, Albedo, spec, Emission, half4(rimLightColor, rimLightAlpha), Shadow, Alpha);
-				#else
-				half4 color = Lighting(inputData, Albedo, spec, Emission, half4(rimLightColor, rimLightAlpha), Alpha);
-				#endif
+				half4 color = Lighting(inputData, Albedo, spec, Emission, rimLightColor, Shadow, Alpha);
 				//
 
 				#ifdef _REFRACTION_ASE

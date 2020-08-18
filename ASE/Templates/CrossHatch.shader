@@ -87,21 +87,18 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 				None,disable:RemoveDefine:_RIM_LIGHT_BLEND 1
 				None,disable:RemoveDefine:_RIM_LIGHT_ADD 1
 				None,disable:HidePort:Forward:Rim Light
-				None,disable:HidePort:Forward:Rim Light Opacity
 				None,disable:HideOption:  Size
 				None,disable:HideOption:  Smoothness
 				None,disable:HideOption:  Align
 				Blend:SetDefine:_RIM_LIGHT_BLEND 1
 				Blend:RemoveDefine:_RIM_LIGHT_ADD 1
 				Blend:ShowPort:Forward:Rim Light
-				Blend:ShowPort:Forward:Rim Light Opacity
 				Blend:ShowOption:  Size
 				Blend:ShowOption:  Smoothness
 				Blend:ShowOption:  Align
 				Additive:RemoveDefine:_RIM_LIGHT_BLEND 1
 				Additive:SetDefine:_RIM_LIGHT_ADD 1
 				Additive:ShowPort:Forward:Rim Light
-				Additive:ShowPort:Forward:Rim Light Opacity
 				Additive:ShowOption:  Size
 				Additive:ShowOption:  Smoothness
 				Additive:ShowOption:  Align
@@ -909,7 +906,7 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 			}
 			#endif
 
-			half4 CrossHatchLighting(InputData inputData, half3 diffuse, half4 specularGloss, half3 emission, half4 crossHatch, half3 crossHatchColor, half4 rimLight, half alpha)
+			half4 CrossHatchLighting(InputData inputData, half3 diffuse, half4 specularGloss, half3 emission, half4 crossHatch, half4 crossHatchColor, half4 rimLight, half alpha)
 			{
 				Light mainLight = GetMainLight(inputData.shadowCoord);
 				MixRealtimeAndBakedGI(mainLight, inputData.normalWS, inputData.bakedGI, half4(0, 0, 0, 0));
@@ -1045,7 +1042,7 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 				half shadeLum = Luminance(shadeColor);
 				half shade = CrossHatchShade(shadeLum, crossHatch);
 
-				finalColor = lerp(crossHatchColor, finalColor, shade);
+				finalColor = lerp(lerp(finalColor, crossHatchColor.rgb, crossHatchColor.a), finalColor, shade);
 
 				return half4(finalColor, alpha);
 			}
@@ -1082,11 +1079,10 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 				float3 Normal = /*ase_frag_out:Normal;Float3;1*/float3(0, 0, 1)/*end*/;
 				float3 Emission = /*ase_frag_out:Emission;Float3;2;-1;_Emission*/0/*end*/;
 				float4 ShadeLookUp = /*ase_frag_out:Shade Look-Up;Float4;101*/float4(0, 0.25, 0.5, 0.75)/*end*/;
-				float3 ShadeColor = /*ase_frag_out:Shade;Float3;102*/0/*end*/;
+				float4 ShadeColor = /*ase_frag_out:Shade;Float4;102*/float4(0,0,0,1)/*end*/;
 				float3 Specular = /*ase_frag_out:Specular;Float3;103*/0.5/*end*/;
 				float Smoothness = /*ase_frag_out:Smoothness;Float;104*/0.5/*end*/;
-				float3 rimLightColor = /*ase_frag_out:Rim Light;Float3;105*/1/*end*/;
-				float rimLightAlpha = /*ase_frag_out:Rim Light Opacity;Float;106*/1/*end*/;
+				float4 rimLightColor = /*ase_frag_out:Rim Light;Float4;105*/1/*end*/;
 				float Alpha = /*ase_frag_out:Alpha;Float;6;-1;_Alpha*/1/*end*/;
 				float AlphaClipThreshold = /*ase_frag_out:Alpha Clip Threshold;Float;7;-1;_AlphaClip*/0.5/*end*/;
 				float3 BakedGI = /*ase_frag_out:Baked GI;Float3;11;-1;_BakedGI*/0/*end*/;
@@ -1134,7 +1130,7 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 					half4 spec = half4(0, 0, 0, 1);
 				#endif
 
-				half4 color = CrossHatchLighting(inputData, Albedo, spec, Emission, ShadeLookUp, ShadeColor, half4(rimLightColor, rimLightAlpha), Alpha);
+				half4 color = CrossHatchLighting(inputData, Albedo, spec, Emission, ShadeLookUp, ShadeColor, rimLightColor, Alpha);
 				//
 
 				#ifdef _REFRACTION_ASE
