@@ -6,13 +6,11 @@ namespace M8.URP {
     public class ShaderFeatureToonEditor : IShaderFeatureEditor {
         public const string propModeLight = "_LightMode";
 
-        public const string keywordLightShadeOnly = "_LIGHT_SHADE_ONLY";
         public const string keywordLightSingleStep = "_LIGHT_SINGLE_STEP";
         public const string keywordLightGradient = "_LIGHT_GRADIENT";
         public const string keywordLightGradientColor = "_LIGHT_GRADIENT_COLOR";
 
         public enum LightMode {
-            ShadeOnly,
             SingleStep,
             Gradient,
             GradientColor
@@ -39,26 +37,17 @@ namespace M8.URP {
         public void MaterialChanged(Material material) {
             var lightMode = (LightMode)material.GetInt(propModeLight);
             switch(lightMode) {
-                case LightMode.ShadeOnly:
-                    CoreUtils.SetKeyword(material, keywordLightShadeOnly, true);
-                    CoreUtils.SetKeyword(material, keywordLightSingleStep, false);
-                    CoreUtils.SetKeyword(material, keywordLightGradient, false);
-                    CoreUtils.SetKeyword(material, keywordLightGradientColor, false);
-                    break;
                 case LightMode.SingleStep:
-                    CoreUtils.SetKeyword(material, keywordLightShadeOnly, false);
                     CoreUtils.SetKeyword(material, keywordLightSingleStep, true);
                     CoreUtils.SetKeyword(material, keywordLightGradient, false);
                     CoreUtils.SetKeyword(material, keywordLightGradientColor, false);
                     break;
                 case LightMode.Gradient:
-                    CoreUtils.SetKeyword(material, keywordLightShadeOnly, false);
                     CoreUtils.SetKeyword(material, keywordLightSingleStep, false);
                     CoreUtils.SetKeyword(material, keywordLightGradient, true);
                     CoreUtils.SetKeyword(material, keywordLightGradientColor, false);
                     break;
                 case LightMode.GradientColor:
-                    CoreUtils.SetKeyword(material, keywordLightShadeOnly, false);
                     CoreUtils.SetKeyword(material, keywordLightSingleStep, false);
                     CoreUtils.SetKeyword(material, keywordLightGradient, false);
                     CoreUtils.SetKeyword(material, keywordLightGradientColor, true);
@@ -73,9 +62,6 @@ namespace M8.URP {
             material.SetInt(propModeLight, (int)lightMode);
 
             switch(lightMode) {
-                case LightMode.ShadeOnly:
-                    break;
-
                 case LightMode.SingleStep:
                     singleStepSmoothness.floatValue = EditorGUILayout.Slider("Smoothness", singleStepSmoothness.floatValue, 0f, 1f);
 
