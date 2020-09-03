@@ -229,10 +229,10 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Toon Cross-Hatch" /*end*/
 		#pragma target 2.0
 
 		//Material Keywords
-		#pragma shader_feature_local _LIGHT_SINGLE_STEP
-		#pragma shader_feature_local _LIGHT_GRADIENT //use a single-channel lookup and lerp between lit and dim color
-		#pragma shader_feature_local _LIGHT_GRADIENT_COLOR //use gradient as light value and color
-		#pragma shader_feature_local _SHADE_GRADIENT //use a single-channel lookup for light value
+		#pragma shader_feature _LIGHT_SINGLE_STEP
+		#pragma shader_feature _LIGHT_GRADIENT //use a single-channel lookup and lerp between lit and dim color
+		#pragma shader_feature _LIGHT_GRADIENT_COLOR //use gradient as light value and color
+		#pragma shader_feature _SHADE_GRADIENT //use a single-channel lookup for light value
 
 		float4 FixedTess( float tessValue )
 		{

@@ -207,7 +207,7 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 		#pragma target 2.0
 
 		//Material Keywords
-		#pragma shader_feature_local _SHADE_GRADIENT //use a single-channel lookup for light value
+		#pragma shader_feature _SHADE_GRADIENT //use a single-channel lookup for light value
 
 		float4 FixedTess( float tessValue )
 		{
