@@ -2,10 +2,6 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 {
 	Properties
 	{
-		[HideInInspector] _ShadeMode("__shadeMode", Int) = 0
-
-		[HideInInspector] _ShadeGradientMap("Shade Gradient", 2D) = "white" {}
-
 		/*ase_props*/
 		//_RimLightSize("Rim Light Size", Range(0.0, 1.0)) = 0.5
 		//_RimLightSmoothness("Rim Light Smoothness", Range(0.0, 1.0)) = 0.5
@@ -16,6 +12,8 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 		//_TessMax( "Tess Max Distance", Float ) = 25
 		//_TessEdgeLength ( "Tess Edge length", Range( 2, 50 ) ) = 16
 		//_TessMaxDisp( "Tess Max Displacement", Float ) = 25
+
+		_ShadeGradientMap("Shade Gradient", 2D) = "white" {}
 	}
 
 	SubShader
@@ -77,6 +75,9 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 				Change:SetMaterialProperty:_RimLightAlign
 				Change:SetShaderProperty:_RimLightAlign,_RimLightAlign("Rim Light Alignment", Range(0.0, 1.0)) = 0
 				Inline,disable:SetShaderProperty:_RimLightAlign
+			Option:Shade Gradient:false,true:false
+				false,disable:RemoveDefine:_SHADE_GRADIENT 1
+				true:SetDefine:_SHADE_GRADIENT 1
 			Option:Two Sided:On,Cull Back,Cull Front:Cull Back
 				On:SetPropertyOnSubShader:CullMode,Off
 				Cull Back:SetPropertyOnSubShader:CullMode,Back
@@ -205,9 +206,6 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 		Cull Back
 		HLSLINCLUDE
 		#pragma target 2.0
-
-		//Material Keywords
-		#pragma shader_feature _SHADE_GRADIENT //use a single-channel lookup for light value
 
 		float4 FixedTess( float tessValue )
 		{
@@ -1937,6 +1935,6 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Cross-Hatch" /*end*/
 		/*ase_pass_end*/
 	}
 	/*ase_lod*/
-	CustomEditor "M8.URP.CrossHatchShaderInspector"
+	CustomEditor "UnityEditor.ShaderGraph.PBRMasterGUI"
 	FallBack "Hidden/InternalErrorShader"
 }

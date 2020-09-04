@@ -2,19 +2,9 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Toon Cross-Hatch" /*end*/
 {
 	Properties
 	{
-		[HideInInspector] _LightMode("__lightMode", Int) = 0
-		[HideInInspector] _ShadeMode("__shadeMode", Int) = 0
-				
-		[HideInInspector] _SingleStepSmoothness("Smoothness", Float) = 0.1
-		[HideInInspector] _SingleStepOffset("Offset", Float) = 0.5
-		[HideInInspector] _LightLitColor("Light Color", Color) = (1, 1, 1, 1)
-		[HideInInspector] _LightDimColor("Dark Color", Color) = (0.5, 0.5, 0.5, 1)
-
-		[HideInInspector] _LightGradientMap("Light Gradient", 2D) = "white" {}
-
-		[HideInInspector] _ShadeGradientMap("Shade Gradient", 2D) = "white" {}
-
 		/*ase_props*/
+		//_SingleStepSmoothness("Light Smoothness", Float) = 0.1
+		//_SingleStepOffset("Light Offset", Float) = 0.5
 		//_RimLightSize("Rim Light Size", Range(0.0, 1.0)) = 0.5
 		//_RimLightSmoothness("Rim Light Smoothness", Range(0.0, 1.0)) = 0.5
 		//_RimLightAlign("Rim Light Alignment", Range(0.0, 1.0)) = 0
@@ -25,7 +15,9 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Toon Cross-Hatch" /*end*/
 		//_TessEdgeLength ( "Tess Edge length", Range( 2, 50 ) ) = 16
 		//_TessMaxDisp( "Tess Max Displacement", Float ) = 25
 
-		_SpecSmoothness("Specular Smoothness", Range(0.0, 1.0)) = 0.25
+		_SpecEdgeSmoothness("Specular Edge Smoothness", Range(0.0, 1.0)) = 0.25
+		_LightGradientMap("Light Gradient", 2D) = "white" {}
+		_ShadeGradientMap("Shade Gradient", 2D) = "white" {}
 	}
 
 	SubShader
@@ -64,41 +56,61 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Toon Cross-Hatch" /*end*/
 				Alpha,Additive,Multiply,disable:RemoveDefine:_ALPHAPREMULTIPLY_ON 1
 				disable:SetPropertyOnPass:Forward:BlendRGB,One,Zero
 				disable:SetPropertyOnPass:Forward:BlendAlpha,One,Zero
-			Field:Specular Smoothness:Float:0:0:1:_SpecSmoothness
-				Change:SetMaterialProperty:_SpecSmoothness
-				Change:SetShaderProperty:_SpecSmoothness,_SpecSmoothness("Specular Smoothness", Range(0.0, 1.0)) = 0.25
-				Inline,disable:SetShaderProperty:_SpecSmoothness
+			Option:Light Mode:Single Step,Gradient:Single Step
+				Single Step:SetDefine:_LIGHT_SINGLE_STEP 1
+				Single Step:RemoveDefine:_LIGHT_GRADIENT 1
+				Single Step:ShowOption:  Step Smoothness
+				Single Step:ShowOption:  Step Offset
+				Gradient:RemoveDefine:_LIGHT_SINGLE_STEP 1
+				Gradient:SetDefine:_LIGHT_GRADIENT 1
+				Gradient:HideOption:  Step Smoothness
+				Gradient:HideOption:  Step Offset
+			Field:  Step Smoothness:Float:0.1:0:1:_SingleStepSmoothness
+				Change:SetMaterialProperty:_SingleStepSmoothness
+				Change:SetShaderProperty:_SingleStepSmoothness,_SingleStepSmoothness("Light Smoothness", Float) = 0.1
+				Inline,disable:SetShaderProperty:_SingleStepSmoothness
+			Field:  Step Offset:Float:0.5:0:1:_SingleStepOffset
+				Change:SetMaterialProperty:_SingleStepOffset
+				Change:SetShaderProperty:_SingleStepOffset,_SingleStepOffset("Light Offset", Float) = 0.5
+				Inline,disable:SetShaderProperty:_SingleStepOffset
+			Field:Specular Edge Smoothness:Float:0:0:1:_SpecEdgeSmoothness
+				Change:SetMaterialProperty:_SpecEdgeSmoothness
+				Change:SetShaderProperty:_SpecEdgeSmoothness,_SpecEdgeSmoothness("Specular Edge Smoothness", Range(0.0, 1.0)) = 0.25
+				Inline,disable:SetShaderProperty:_SpecEdgeSmoothness
 			Option:Rim Light:None,Blend,Additive:None
 				None,disable:RemoveDefine:_RIM_LIGHT_BLEND 1
 				None,disable:RemoveDefine:_RIM_LIGHT_ADD 1
 				None,disable:HidePort:Forward:Rim Light
-				None,disable:HideOption:  Size
-				None,disable:HideOption:  Smoothness
-				None,disable:HideOption:  Align
+				None,disable:HideOption:  Rim Size
+				None,disable:HideOption:  Rim Smoothness
+				None,disable:HideOption:  Rim Align
 				Blend:SetDefine:_RIM_LIGHT_BLEND 1
 				Blend:RemoveDefine:_RIM_LIGHT_ADD 1
 				Blend:ShowPort:Forward:Rim Light
-				Blend:ShowOption:  Size
-				Blend:ShowOption:  Smoothness
-				Blend:ShowOption:  Align
+				Blend:ShowOption:  Rim Size
+				Blend:ShowOption:  Rim Smoothness
+				Blend:ShowOption:  Rim Align
 				Additive:RemoveDefine:_RIM_LIGHT_BLEND 1
 				Additive:SetDefine:_RIM_LIGHT_ADD 1
 				Additive:ShowPort:Forward:Rim Light
-				Additive:ShowOption:  Size
-				Additive:ShowOption:  Smoothness
-				Additive:ShowOption:  Align
-			Field:  Size:Float:0.5:0:1:_RimLightSize
+				Additive:ShowOption:  Rim Size
+				Additive:ShowOption:  Rim Smoothness
+				Additive:ShowOption:  Rim Align
+			Field:  Rim Size:Float:0.5:0:1:_RimLightSize
 				Change:SetMaterialProperty:_RimLightSize
 				Change:SetShaderProperty:_RimLightSize,_RimLightSize("Rim Light Size", Range(0.0, 1.0)) = 0.5
 				Inline,disable:SetShaderProperty:_RimLightSize
-			Field:  Smoothness:Float:0.5:0:1:_RimLightSize
+			Field:  Rim Smoothness:Float:0.5:0:1:_RimLightSize
 				Change:SetMaterialProperty:_RimLightSmoothness
 				Change:SetShaderProperty:_RimLightSmoothness,_RimLightSmoothness("Rim Light Smoothness", Range(0.0, 1.0)) = 0.5
 				Inline,disable:SetShaderProperty:_RimLightSmoothness
-			Field:  Align:Float:0:0:1:_RimLightAlign
+			Field:  Rim Align:Float:0:0:1:_RimLightAlign
 				Change:SetMaterialProperty:_RimLightAlign
 				Change:SetShaderProperty:_RimLightAlign,_RimLightAlign("Rim Light Alignment", Range(0.0, 1.0)) = 0
 				Inline,disable:SetShaderProperty:_RimLightAlign
+			Option:Shade Gradient:false,true:false
+				false,disable:RemoveDefine:_SHADE_GRADIENT 1
+				true:SetDefine:_SHADE_GRADIENT 1
 			Option:Two Sided:On,Cull Back,Cull Front:Cull Back
 				On:SetPropertyOnSubShader:CullMode,Off
 				Cull Back:SetPropertyOnSubShader:CullMode,Back
@@ -216,6 +228,10 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Toon Cross-Hatch" /*end*/
 				On:SetDefine:_ALPHATEST_ON 1
 			Port:Forward:Normal
 				On:SetDefine:_NORMALMAP 1
+			Port:Forward:LightLit
+				On:SetDefine:_LIGHTCOLOR 1
+			Port:Forward:LightDim
+				On:SetDefine:_LIGHTCOLOR 1
 		*/
 
 		Tags
@@ -227,12 +243,6 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Toon Cross-Hatch" /*end*/
 		Cull Back
 		HLSLINCLUDE
 		#pragma target 2.0
-
-		//Material Keywords
-		#pragma shader_feature _LIGHT_SINGLE_STEP
-		#pragma shader_feature _LIGHT_GRADIENT //use a single-channel lookup and lerp between lit and dim color
-		#pragma shader_feature _LIGHT_GRADIENT_COLOR //use gradient as light value and color
-		#pragma shader_feature _SHADE_GRADIENT //use a single-channel lookup for light value
 
 		float4 FixedTess( float tessValue )
 		{
@@ -405,12 +415,8 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Toon Cross-Hatch" /*end*/
 				float _SingleStepSmoothness;
 				float _SingleStepOffset;
 			#endif
-			#if defined(_LIGHT_SINGLE_STEP) || defined(_LIGHT_GRADIENT)
-				half4 _LightLitColor;
-				half4 _LightDimColor;
-			#endif
 			#ifdef _SPECULAR_COLOR
-				float _SpecSmoothness;
+				float _SpecEdgeSmoothness;
 			#endif
 			#if defined(_RIM_LIGHT_BLEND) || defined(_RIM_LIGHT_ADD)
 				float _RimLightSize;
@@ -668,12 +674,8 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Toon Cross-Hatch" /*end*/
 				float _SingleStepSmoothness;
 				float _SingleStepOffset;				
 			#endif
-			#if defined(_LIGHT_SINGLE_STEP) || defined(_LIGHT_GRADIENT)
-				half4 _LightLitColor;
-				half4 _LightDimColor;
-			#endif
 			#ifdef _SPECULAR_COLOR
-				float _SpecSmoothness;
+				float _SpecEdgeSmoothness;
 			#endif
 			#if defined(_RIM_LIGHT_BLEND) || defined(_RIM_LIGHT_ADD)
 				float _RimLightSize;
@@ -887,20 +889,22 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Toon Cross-Hatch" /*end*/
 				float3 hVec = normalize(lightDir + viewDir);
 				float NdotH = dot(normal, hVec) * 0.5 + 0.5;
 				float s = saturate(pow(abs(NdotH), specular.a));
-				half sr = smoothstep(0.5 - _SpecSmoothness * 0.1, 0.5 + _SpecSmoothness * 0.1, s);
+				half sr = smoothstep(0.5 - _SpecEdgeSmoothness * 0.1, 0.5 + _SpecEdgeSmoothness * 0.1, s);
 				return lightColor * specular.rgb * sr;
 			}
 			#endif
 
-			inline half3 ComputeLightColor(half3 lightColor, half4 rimLight, float rimTrans, half3 lightDir, half3 normal) {
+			inline half3 ComputeLightColor(half3 litColor, half3 dimColor, half3 lightColor, half4 rimLight, float rimTrans, half3 lightDir, half3 normal) {
 				half3 lc;
 
 				#ifdef _LIGHT_SINGLE_STEP
-				lc = lerp(_LightDimColor, _LightLitColor, LambertSingleStep(lightDir, normal, _SingleStepOffset, _SingleStepSmoothness)).rgb;
+				lc = lerp(dimColor, litColor, LambertSingleStep(lightDir, normal, _SingleStepOffset, _SingleStepSmoothness)).rgb;
 				#elif _LIGHT_GRADIENT
-				lc = lerp(_LightDimColor, _LightLitColor, LambertGradient(lightDir, normal, TEXTURE2D_ARGS(_LightGradientMap, sampler_LightGradientMap))).rgb;
-				#elif _LIGHT_GRADIENT_COLOR
-				lc = LambertColorGradient(lightDir, normal, TEXTURE2D_ARGS(_LightGradientMap, sampler_LightGradientMap));
+					#ifdef _LIGHTCOLOR
+					lc = lerp(dimColor, litColor, LambertGradient(lightDir, normal, TEXTURE2D_ARGS(_LightGradientMap, sampler_LightGradientMap))).rgb;
+					#else
+					lc = LambertColorGradient(lightDir, normal, TEXTURE2D_ARGS(_LightGradientMap, sampler_LightGradientMap));
+					#endif
 				#else
 				lc = 0.0;
 				#endif
@@ -916,7 +920,7 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Toon Cross-Hatch" /*end*/
 				return lc;
 			}
 
-			half4 CrossHatchLighting(InputData inputData, half3 diffuse, half4 specularGloss, half3 emission, half4 crossHatch, half4 crossHatchColor, half4 rimLight, half alpha)
+			half4 CrossHatchLighting(InputData inputData, half3 diffuse, half4 specularGloss, half3 emission, half4 crossHatch, half4 crossHatchColor, half3 litColor, half3 dimColor, half4 rimLight, half alpha)
 			{
 				Light mainLight = GetMainLight(inputData.shadowCoord);
 				MixRealtimeAndBakedGI(mainLight, inputData.normalWS, inputData.bakedGI, half4(0, 0, 0, 0));
@@ -934,7 +938,7 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Toon Cross-Hatch" /*end*/
 				//lighting
 				half3 diffuseColor = inputData.bakedGI;
 
-				diffuseColor += ComputeLightColor(distanceAttenuatedLightColor, rimLight, rimTrans, mainLight.direction, inputData.normalWS);
+				diffuseColor += ComputeLightColor(litColor, dimColor, distanceAttenuatedLightColor, rimLight, rimTrans, mainLight.direction, inputData.normalWS);
 				//
 
 				//shading
@@ -964,7 +968,7 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Toon Cross-Hatch" /*end*/
 					rimTrans = RimTransition(light.direction, inputData.normalWS, inputData.viewDirectionWS);
 					#endif
 
-					diffuseColor += ComputeLightColor(attenuatedLightColor, rimLight, rimTrans, light.direction, inputData.normalWS);
+					diffuseColor += ComputeLightColor(litColor, dimColor, attenuatedLightColor, rimLight, rimTrans, light.direction, inputData.normalWS);
 
 					//shading
 					#if _SHADE_GRADIENT
@@ -1037,6 +1041,8 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Toon Cross-Hatch" /*end*/
 				float3 Albedo = /*ase_frag_out:Albedo;Float3;0;-1;_Albedo*/float3(0.5, 0.5, 0.5)/*end*/;
 				float3 Normal = /*ase_frag_out:Normal;Float3;1*/float3(0, 0, 1)/*end*/;
 				float3 Emission = /*ase_frag_out:Emission;Float3;2;-1;_Emission*/0/*end*/;
+				float3 LitColor = /*ase_frag_out:LightLit;Float3;106*/1/*end*/;
+				float3 DimColor = /*ase_frag_out:LightDim;Float3;107*/0/*end*/;
 				float4 ShadeLookUp = /*ase_frag_out:Shade Look-Up;Float4;101*/float4(0, 0.25, 0.5, 0.75)/*end*/;
 				float4 ShadeColor = /*ase_frag_out:Shade;Float4;102*/float4(0,0,0,1)/*end*/;
 				float3 Specular = /*ase_frag_out:Specular;Float3;103*/0.5/*end*/;
@@ -1087,7 +1093,7 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Toon Cross-Hatch" /*end*/
 					half4 spec = half4(0, 0, 0, 1);
 				#endif
 
-				half4 color = CrossHatchLighting(inputData, Albedo, spec, Emission, ShadeLookUp, ShadeColor, rimLightColor, Alpha);
+				half4 color = CrossHatchLighting(inputData, Albedo, spec, Emission, ShadeLookUp, ShadeColor, LitColor, DimColor, rimLightColor, Alpha);
 				//
 
 				#ifdef _REFRACTION_ASE
@@ -1174,12 +1180,8 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Toon Cross-Hatch" /*end*/
 				float _SingleStepSmoothness;
 				float _SingleStepOffset;
 			#endif
-			#if defined(_LIGHT_SINGLE_STEP) || defined(_LIGHT_GRADIENT)
-				half4 _LightLitColor;
-				half4 _LightDimColor;
-			#endif
 			#ifdef _SPECULAR_COLOR
-				float _SpecSmoothness;
+				float _SpecEdgeSmoothness;
 			#endif
 			#if defined(_RIM_LIGHT_BLEND) || defined(_RIM_LIGHT_ADD)
 				float _RimLightSize;
@@ -1413,12 +1415,8 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Toon Cross-Hatch" /*end*/
 				float _SingleStepSmoothness;
 				float _SingleStepOffset;
 			#endif
-			#if defined(_LIGHT_SINGLE_STEP) || defined(_LIGHT_GRADIENT)
-				half4 _LightLitColor;
-				half4 _LightDimColor;
-			#endif
 			#ifdef _SPECULAR_COLOR
-				float _SpecSmoothness;
+				float _SpecEdgeSmoothness;
 			#endif
 			#if defined(_RIM_LIGHT_BLEND) || defined(_RIM_LIGHT_ADD)
 				float _RimLightSize;
@@ -1645,12 +1643,8 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Toon Cross-Hatch" /*end*/
 				float _SingleStepSmoothness;
 				float _SingleStepOffset;
 			#endif
-			#if defined(_LIGHT_SINGLE_STEP) || defined(_LIGHT_GRADIENT)
-				half4 _LightLitColor;
-				half4 _LightDimColor;
-			#endif
 			#ifdef _SPECULAR_COLOR
-				float _SpecSmoothness;
+				float _SpecEdgeSmoothness;
 			#endif
 			#if defined(_RIM_LIGHT_BLEND) || defined(_RIM_LIGHT_ADD)
 				float _RimLightSize;
@@ -1891,12 +1885,8 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Toon Cross-Hatch" /*end*/
 				float _SingleStepSmoothness;
 				float _SingleStepOffset;
 			#endif
-			#if defined(_LIGHT_SINGLE_STEP) || defined(_LIGHT_GRADIENT)
-				half4 _LightLitColor;
-				half4 _LightDimColor;
-			#endif
 			#ifdef _SPECULAR_COLOR
-				float _SpecSmoothness;
+				float _SpecEdgeSmoothness;
 			#endif
 			#if defined(_RIM_LIGHT_BLEND) || defined(_RIM_LIGHT_ADD)
 				float _RimLightSize;
@@ -2065,6 +2055,6 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Toon Cross-Hatch" /*end*/
 		/*ase_pass_end*/
 	}
 	/*ase_lod*/
-	CustomEditor "M8.URP.ToonCrossHatchShaderInspector"
+	CustomEditor "UnityEditor.ShaderGraph.PBRMasterGUI"
 	FallBack "Hidden/InternalErrorShader"
 }

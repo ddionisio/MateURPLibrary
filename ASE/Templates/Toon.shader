@@ -3,8 +3,8 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Toon" /*end*/
 	Properties
 	{
 		/*ase_props*/
-		//_LightStepSmoothness("Light Smoothness", Float) = 0.1
-		//_LightStepOffset("Light Offset", Float) = 0.5
+		//_SingleStepSmoothness("Light Smoothness", Float) = 0.1
+		//_SingleStepOffset("Light Offset", Float) = 0.5
 		//_RimLightSize("Rim Light Size", Range(0.0, 1.0)) = 0.5
 		//_RimLightSmoothness("Rim Light Smoothness", Range(0.0, 1.0)) = 0.5
 		//_RimLightAlign("Rim Light Alignment", Range(0.0, 1.0)) = 0
@@ -15,7 +15,7 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Toon" /*end*/
 		//_TessEdgeLength ( "Tess Edge length", Range( 2, 50 ) ) = 16
 		//_TessMaxDisp( "Tess Max Displacement", Float ) = 25
 		
-		_SpecSmoothness("Specular Edge Smoothness", Range(0.0, 1.0)) = 0.25
+		_SpecEdgeSmoothness("Specular Edge Smoothness", Range(0.0, 1.0)) = 0.25
 		_LightFalloff("Light Falloff", Range(0.0001, 1.0)) = 0.0001
 		_LightGradientMap("Light Gradient", 2D) = "white" {}
 	}
@@ -65,50 +65,50 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Toon" /*end*/
 				Gradient:SetDefine:_LIGHT_GRADIENT 1
 				Gradient:HideOption:  Step Smoothness
 				Gradient:HideOption:  Step Offset
-			Field:  Step Smoothness:Float:0.1:0:1:_LightStepSmoothness
-				Change:SetMaterialProperty:_LightStepSmoothness
-				Change:SetShaderProperty:_LightStepSmoothness,_LightStepSmoothness("Light Smoothness", Float) = 0.1
-				Inline,disable:SetShaderProperty:_LightStepSmoothness
-			Field:  Step Offset:Float:0.5:0:1:_LightStepOffset
-				Change:SetMaterialProperty:_LightStepOffset
-				Change:SetShaderProperty:_LightStepOffset,_LightStepOffset("Light Offset", Float) = 0.5
-				Inline,disable:SetShaderProperty:_LightStepOffset
+			Field:  Step Smoothness:Float:0.1:0:1:_SingleStepSmoothness
+				Change:SetMaterialProperty:_SingleStepSmoothness
+				Change:SetShaderProperty:_SingleStepSmoothness,_SingleStepSmoothness("Light Smoothness", Float) = 0.1
+				Inline,disable:SetShaderProperty:_SingleStepSmoothness
+			Field:  Step Offset:Float:0.5:0:1:_SingleStepOffset
+				Change:SetMaterialProperty:_SingleStepOffset
+				Change:SetShaderProperty:_SingleStepOffset,_SingleStepOffset("Light Offset", Float) = 0.5
+				Inline,disable:SetShaderProperty:_SingleStepOffset
 			Field:Light Falloff:Float:0.0001:0.0001:1:_LightFalloff
 				Change:SetMaterialProperty:_LightFalloff
 				Change:SetShaderProperty:_LightFalloff,_LightFalloff("Light Falloff", Range(0.0001, 1.0)) = 0.0001
 				Inline,disable:SetShaderProperty:_LightFalloff
-			Field:Specular Smoothness:Float:0.25:0:1:_SpecSmoothness
-				Change:SetMaterialProperty:_SpecSmoothness
-				Change:SetShaderProperty:_SpecSmoothness,_SpecSmoothness("Specular Edge Smoothness", Range(0.0, 1.0)) = 0.25
-				Inline,disable:SetShaderProperty:_SpecSmoothness
+			Field:Specular Edge Smoothness:Float:0.25:0:1:_SpecEdgeSmoothness
+				Change:SetMaterialProperty:_SpecEdgeSmoothness
+				Change:SetShaderProperty:_SpecEdgeSmoothness,_SpecEdgeSmoothness("Specular Edge Smoothness", Range(0.0, 1.0)) = 0.25
+				Inline,disable:SetShaderProperty:_SpecEdgeSmoothness
 			Option:Rim Light:None,Blend,Additive:None
 				None,disable:RemoveDefine:_RIM_LIGHT_BLEND 1
 				None,disable:RemoveDefine:_RIM_LIGHT_ADD 1
 				None,disable:HidePort:Forward:Rim Light
-				None,disable:HideOption:  Size
-				None,disable:HideOption:  Smoothness
-				None,disable:HideOption:  Align
+				None,disable:HideOption:  Rim Size
+				None,disable:HideOption:  Rim Smoothness
+				None,disable:HideOption:  Rim Align
 				Blend:SetDefine:_RIM_LIGHT_BLEND 1
 				Blend:RemoveDefine:_RIM_LIGHT_ADD 1
 				Blend:ShowPort:Forward:Rim Light
-				Blend:ShowOption:  Size
-				Blend:ShowOption:  Smoothness
-				Blend:ShowOption:  Align
+				Blend:ShowOption:  Rim Size
+				Blend:ShowOption:  Rim Smoothness
+				Blend:ShowOption:  Rim Align
 				Additive:RemoveDefine:_RIM_LIGHT_BLEND 1
 				Additive:SetDefine:_RIM_LIGHT_ADD 1
 				Additive:ShowPort:Forward:Rim Light
-				Additive:ShowOption:  Size
-				Additive:ShowOption:  Smoothness
-				Additive:ShowOption:  Align
-			Field:  Size:Float:0.5:0:1:_RimLightSize
+				Additive:ShowOption:  Rim Size
+				Additive:ShowOption:  Rim Smoothness
+				Additive:ShowOption:  Rim Align
+			Field:  Rim Size:Float:0.5:0:1:_RimLightSize
 				Change:SetMaterialProperty:_RimLightSize
 				Change:SetShaderProperty:_RimLightSize,_RimLightSize("Rim Light Size", Range(0.0, 1.0)) = 0.5
 				Inline,disable:SetShaderProperty:_RimLightSize
-			Field:  Smoothness:Float:0.5:0:1:_RimLightSize
+			Field:  Rim Smoothness:Float:0.5:0:1:_RimLightSize
 				Change:SetMaterialProperty:_RimLightSmoothness
 				Change:SetShaderProperty:_RimLightSmoothness,_RimLightSmoothness("Rim Light Smoothness", Range(0.0, 1.0)) = 0.5
 				Inline,disable:SetShaderProperty:_RimLightSmoothness
-			Field:  Align:Float:0:0:1:_RimLightAlign
+			Field:  Rim Align:Float:0:0:1:_RimLightAlign
 				Change:SetMaterialProperty:_RimLightAlign
 				Change:SetShaderProperty:_RimLightAlign,_RimLightAlign("Rim Light Alignment", Range(0.0, 1.0)) = 0
 				Inline,disable:SetShaderProperty:_RimLightAlign
@@ -418,12 +418,12 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Toon" /*end*/
 				float _TessMaxDisp;
 			#endif
 			#ifdef _LIGHT_SINGLE_STEP
-				float _LightStepSmoothness;
-				float _LightStepOffset;
+				float _SingleStepSmoothness;
+				float _SingleStepOffset;
 			#endif
 				float _LightFalloff;
 			#ifdef _SPECULAR_COLOR
-				float _SpecSmoothness;
+				float _SpecEdgeSmoothness;
 			#endif
 			#if defined(_RIM_LIGHT_BLEND) || defined(_RIM_LIGHT_ADD)
 				float _RimLightSize;
@@ -678,12 +678,12 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Toon" /*end*/
 				float _TessMaxDisp;
 			#endif
 			#ifdef _LIGHT_SINGLE_STEP
-				float _LightStepSmoothness;
-				float _LightStepOffset;				
+				float _SingleStepSmoothness;
+				float _SingleStepOffset;				
 			#endif
 				float _LightFalloff;
 			#ifdef _SPECULAR_COLOR
-				float _SpecSmoothness;
+				float _SpecEdgeSmoothness;
 			#endif
 			#if defined(_RIM_LIGHT_BLEND) || defined(_RIM_LIGHT_ADD)
 				float _RimLightSize;
@@ -873,7 +873,7 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Toon" /*end*/
 				float3 hVec = normalize(lightDir + viewDir);
 				float NdotH = dot(normal, hVec) * 0.5 + 0.5;
 				float s = saturate(pow(abs(NdotH), specular.a));
-				half sr = smoothstep(0.5 - _SpecSmoothness * 0.1, 0.5 + _SpecSmoothness * 0.1, s);
+				half sr = smoothstep(0.5 - _SpecEdgeSmoothness * 0.1, 0.5 + _SpecEdgeSmoothness * 0.1, s);
 				return lightColor * specular.rgb * sr;
 			}
 			#endif
@@ -886,7 +886,7 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Toon" /*end*/
 				#endif
 
 				#ifdef _LIGHT_SINGLE_STEP
-				lc = lerp(dimColor, litColor, LambertSingleStep(lightDir, normal, _LightStepOffset, _LightStepSmoothness)).rgb;
+				lc = lerp(dimColor, litColor, LambertSingleStep(lightDir, normal, _SingleStepOffset, _SingleStepSmoothness)).rgb;
 				#elif _LIGHT_GRADIENT
 					#ifdef _LIGHTCOLOR
 					lc = lerp(dimColor, litColor, LambertGradient(lightDir, normal, TEXTURE2D_ARGS(_LightGradientMap, sampler_LightGradientMap))).rgb;
@@ -1159,12 +1159,12 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Toon" /*end*/
 				float _TessMaxDisp;
 			#endif
 			#ifdef _LIGHT_SINGLE_STEP
-				float _LightStepSmoothness;
-				float _LightStepOffset;
+				float _SingleStepSmoothness;
+				float _SingleStepOffset;
 			#endif
 				float _LightFalloff;
 			#ifdef _SPECULAR_COLOR
-				float _SpecSmoothness;
+				float _SpecEdgeSmoothness;
 			#endif
 			#if defined(_RIM_LIGHT_BLEND) || defined(_RIM_LIGHT_ADD)
 				float _RimLightSize;
@@ -1395,12 +1395,12 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Toon" /*end*/
 				float _TessMaxDisp;
 			#endif
 			#ifdef _LIGHT_SINGLE_STEP
-				float _LightStepSmoothness;
-				float _LightStepOffset;
+				float _SingleStepSmoothness;
+				float _SingleStepOffset;
 			#endif
 				float _LightFalloff;
 			#ifdef _SPECULAR_COLOR
-				float _SpecSmoothness;
+				float _SpecEdgeSmoothness;
 			#endif
 			#if defined(_RIM_LIGHT_BLEND) || defined(_RIM_LIGHT_ADD)
 				float _RimLightSize;
@@ -1624,12 +1624,12 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Toon" /*end*/
 				float _TessMaxDisp;
 			#endif
 			#ifdef _LIGHT_SINGLE_STEP
-				float _LightStepSmoothness;
-				float _LightStepOffset;
+				float _SingleStepSmoothness;
+				float _SingleStepOffset;
 			#endif
 				float _LightFalloff;
 			#ifdef _SPECULAR_COLOR
-				float _SpecSmoothness;
+				float _SpecEdgeSmoothness;
 			#endif
 			#if defined(_RIM_LIGHT_BLEND) || defined(_RIM_LIGHT_ADD)
 				float _RimLightSize;
@@ -1867,12 +1867,12 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Toon" /*end*/
 				float _TessMaxDisp;
 			#endif
 			#ifdef _LIGHT_SINGLE_STEP
-				float _LightStepSmoothness;
-				float _LightStepOffset;
+				float _SingleStepSmoothness;
+				float _SingleStepOffset;
 			#endif
 				float _LightFalloff;
 			#ifdef _SPECULAR_COLOR
-				float _SpecSmoothness;
+				float _SpecEdgeSmoothness;
 			#endif
 			#if defined(_RIM_LIGHT_BLEND) || defined(_RIM_LIGHT_ADD)
 				float _RimLightSize;
