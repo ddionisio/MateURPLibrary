@@ -126,6 +126,13 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Toon" /*end*/
 			Option:Cast Shadows:false,true:true
 				true:IncludePass:ShadowCaster
 				false,disable:ExcludePass:ShadowCaster
+				true:ShowOption:  Use Shadow Threshold
+				false:HideOption:  Use Shadow Threshold
+			Option:  Use Shadow Threshold:false,true:false
+				true:SetDefine:_ALPHATEST_SHADOW_ON 1
+				true:ShowPort:Forward:Alpha Clip Threshold Shadow
+				false,disable:RemoveDefine:_ALPHATEST_SHADOW_ON 1
+				false,disable:HidePort:Forward:Alpha Clip Threshold Shadow
 			Option:Receive Shadows:false,true:true
 				true:RemoveDefine:_RECEIVE_SHADOWS_OFF 1
 				false:SetDefine:_RECEIVE_SHADOWS_OFF 1
@@ -247,6 +254,7 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Toon" /*end*/
 			"Queue"="Geometry+0" 
 		}
 		Cull Back
+		AlphaToMask Off
 		HLSLINCLUDE
 		#pragma target 2.0
 
@@ -611,7 +619,7 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Toon" /*end*/
 			HLSLPROGRAM
 			#pragma prefer_hlslcc gles
 			#pragma exclude_renderers d3d11_9x
-						
+
 			#pragma multi_compile _ _MAIN_LIGHT_SHADOWS
 			#pragma multi_compile _ _MAIN_LIGHT_SHADOWS_CASCADE
 			#pragma multi_compile _ _ADDITIONAL_LIGHTS_VERTEX _ADDITIONAL_LIGHTS
@@ -1032,6 +1040,7 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Toon" /*end*/
 				float4 Shadow = /*ase_frag_out:Shadow;Float4;106*/float4(0,0,0,1)/*end*/;
 				float Alpha = /*ase_frag_out:Alpha;Float;6;-1;_Alpha*/1/*end*/;
 				float AlphaClipThreshold = /*ase_frag_out:Alpha Clip Threshold;Float;7;-1;_AlphaClip*/0.5/*end*/;
+				float AlphaClipThresholdShadow = /*ase_frag_out:Alpha Clip Threshold Shadow;Float;16;-1;_AlphaClipShadow*/0.5/*end*/;
 				float3 BakedGI = /*ase_frag_out:Baked GI;Float3;11;-1;_BakedGI*/0/*end*/;
 				float3 RefractionColor = /*ase_frag_out:Refraction Color;Float3;12;-1;_RefractionColor*/1/*end*/;
 				float RefractionIndex = /*ase_frag_out:Refraction Index;Float;13;-1;_RefractionIndex*/1/*end*/;
@@ -1110,6 +1119,7 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Toon" /*end*/
 
 			ZWrite On
 			ZTest LEqual
+			AlphaToMask Off
 
 			HLSLPROGRAM
 			#pragma prefer_hlslcc gles
@@ -1323,9 +1333,14 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Toon" /*end*/
 				/*ase_frag_code:IN=VertexOutput*/
 				float Alpha = /*ase_frag_out:Alpha;Float;0;-1;_Alpha*/1/*end*/;
 				float AlphaClipThreshold = /*ase_frag_out:Alpha Clip Threshold;Float;1;-1;_AlphaClip*/0.5/*end*/;
+				float AlphaClipThresholdShadow = /*ase_frag_out:Alpha Clip Threshold Shadow;Float;4;-1;_AlphaClipShadow*/0.5/*end*/;
 
 				#ifdef _ALPHATEST_ON
-					clip(Alpha - AlphaClipThreshold);
+					#ifdef _ALPHATEST_SHADOW_ON
+						clip(Alpha - AlphaClipThresholdShadow);
+					#else
+						clip(Alpha - AlphaClipThreshold);
+					#endif
 				#endif
 
 				#ifdef LOD_FADE_CROSSFADE
@@ -1346,6 +1361,7 @@ Shader /*ase_name*/ "Hidden/Universal/M8/Toon" /*end*/
 
 			ZWrite On
 			ColorMask 0
+			AlphaToMask Off
 
 			HLSLPROGRAM
 			#pragma prefer_hlslcc gles
